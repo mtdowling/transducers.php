@@ -48,11 +48,11 @@ function identity($value)
 }
 
 /**
- * Create a transducer function.
+ * Creates a transducer function.
  *
- * @param callable $init
- * @param callable $step
- * @param callable $complete
+ * @param callable $init     Initialization function.
+ * @param callable $step     Step function (accepts $carry, $item)
+ * @param callable $complete Complete function that accepts a single value.
  *
  * @return callable
  */
@@ -70,31 +70,25 @@ function create(callable $init, callable $step, callable $complete)
 }
 
 /**
- * Creates an iterator for the given collection.
+ * Returns a value that can be used in a for-loop.
  *
  * @param mixed $coll Collection to iterate
  *
- * @return \Iterator
+ * @return array|\Traversable|\Iterator
  */
-function iterate($coll)
+function sequence($coll)
 {
     if (is_array($coll)) {
         return new \ArrayIterator($coll);
-    }
-
-    if ($coll instanceof \IteratorAggregate) {
-        return $coll->getIterator();
-    } elseif ($coll instanceof \Iterator) {
-        return $coll;
     } elseif ($coll instanceof \Traversable) {
-        return new \IteratorIterator($coll);
+        return $coll;
     }
 
     throw new \InvalidArgumentException('Invalid collection');
 }
 
 /**
- * Creates a transducer step function that appends to an array.
+ * Creates a transducer function that appends to an array.
  *
  * @return callable
  */
@@ -125,7 +119,7 @@ function append()
 function reduce(callable $fn, $iterable, $initializer = null)
 {
     $carry = $initializer;
-    foreach (iterate($iterable) as $item) {
+    foreach (sequence($iterable) as $item) {
         $carry = $fn($carry, $item);
         if ($carry instanceof Reduced) {
             return $carry->value;
