@@ -178,9 +178,7 @@ function map(callable $f)
             function ($carry, $item) use ($step, $f) {
                 return $step($carry, $f($item));
             },
-            function ($complete) use ($step) {
-                return $step($complete);
-            }
+            $step
         );
     };
 }
@@ -219,9 +217,7 @@ function cat(callable $step)
         function ($carry, $item) use ($step) {
             return array_reduce((array) $item, $step, $carry);
         },
-        function ($completed) use ($step) {
-            return $step($completed);
-        }
+        $step
     );
 }
 
@@ -254,12 +250,10 @@ function take($n)
             $n <= 0
                 ? 'Transducers\identity'
                 : function ($carry, $item) use (&$remaining, $step) {
-                $carry = $step($carry, $item);
-                return --$remaining ? $carry : ensure_reduced($carry);
-            },
-            function ($complete) use ($step) {
-                return $step($complete);
-            }
+                    $carry = $step($carry, $item);
+                    return --$remaining ? $carry : ensure_reduced($carry);
+                },
+            $step
         );
     };
 }
@@ -281,9 +275,7 @@ function take_while(callable $pred)
                     ? $step($carry, $item)
                     : new Reduced($carry);
             },
-            function ($complete) use ($step) {
-                return $step($complete);
-            }
+            $step
         );
     };
 }
@@ -304,9 +296,7 @@ function take_nth($nth)
             function ($carry, $item) use ($step, &$i, $nth) {
                 return $i++ % $nth ? $carry : $step($carry, $item);
             },
-            function ($complete) use ($step) {
-                return $step($complete);
-            }
+            $step
         );
     };
 }
@@ -327,9 +317,7 @@ function drop($n)
             function ($carry, $item) use ($step, &$remaining) {
                 return $remaining-- > 0 ? $carry : $step($carry, $item);
             },
-            function ($complete) use ($step) {
-                return $step($complete);
-            }
+            $step
         );
     };
 }
@@ -360,9 +348,7 @@ function drop_while(callable $pred)
                 // Currently dropping
                 return $carry;
             },
-            function ($complete) use ($step) {
-                return $step($complete);
-            }
+            $step
         );
     };
 }
