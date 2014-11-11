@@ -196,9 +196,9 @@ function filter(callable $pred)
         return create(
             $step,
             function ($carry, $item) use ($pred, $step) {
-                return $pred($item) ? $step($carry, $item) : $item;
+                return $pred($item) ? $step($carry, $item) : $carry;
             },
-            'Transducers\identity'
+            $step
         );
     };
 }
