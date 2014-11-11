@@ -484,3 +484,23 @@ function dedupe()
         );
     };
 }
+
+/**
+ * Transduces items from $coll into the given $target.
+ *
+ * @param mixed    $target Where items are appended.
+ * @param callable $xf     Transducer function.
+ * @param mixed    $coll   Sequence of data
+ *
+ * @return mixed
+ */
+function into($target, callable $xf, $coll)
+{
+    if (is_array($target) || $target instanceof \ArrayAccess) {
+        return transduce($xf, append(), $coll, $target);
+    } elseif (is_resource($target)) {
+        return transduce($xf, stream(), $coll, $target);
+    }
+
+    throw new \InvalidArgumentException('Unknown target provided');
+}
