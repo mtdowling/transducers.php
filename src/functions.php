@@ -107,6 +107,25 @@ function append()
 }
 
 /**
+ * Creates a transducer that writes to a stream resource.
+ *
+ * @return callable
+ */
+function stream()
+{
+    return create(
+        function () {
+            return fopen('php://temp', 'w+');
+        },
+        function ($r, $x) {
+            \fwrite($r, $x);
+            return $r;
+        },
+        'Transducers\identity'
+    );
+}
+
+/**
  * Reduces the given iterable using the provided reduce function $fn. The
  * reduction is short-circuited if $fn returns an instance of Reduced.
  *
@@ -154,11 +173,11 @@ function reduce(callable $fn, $iterable, $initializer = null)
 function transduce(callable $xf, callable $f, $coll, $init = null)
 {
     if ($init === null) {
-        $result = transduce($xf, $f, $coll, $f());
-    } else {
-        $reducer = $xf($f);
-        $result = $reducer(reduce($reducer, $coll, $init));
+        return transduce($xf, $f, $coll, $f());
     }
+
+    $reducer = $xf($f);
+    $result = $reducer(reduce($reducer, $coll, $init));
 
     return $result instanceof Reduced ? $result->value : $result;
 }
@@ -197,6 +216,26 @@ function filter(callable $pred)
             $step,
             function ($carry, $item) use ($pred, $step) {
                 return $pred($item) ? $step($carry, $item) : $carry;
+            },
+            $step
+        );
+    };
+}
+
+/**
+ * Removes anything from a sequence that satisfied $pred
+ *
+ * @param callable $pred Function that accepts a value and returns true/false
+ *
+ * @return callable
+ */
+function remove(callable $pred)
+{
+    return function (callable $step) use ($pred) {
+        return create(
+            $step,
+            function ($carry, $item) use ($pred, $step) {
+                return !$pred($item) ? $step($carry, $item) : $carry;
             },
             $step
         );
@@ -346,6 +385,99 @@ function drop_while(callable $pred)
                     return $step($carry, $item);
                 }
                 // Currently dropping
+                return $carry;
+            },
+            $step
+        );
+    };
+}
+
+/**
+ * Given a map of replacement pairs and a collection, returns a sequence where
+ * any elements equal to a key in $smap are replaced with the corresponding
+ * $smap value.
+ *
+ * @param array $smap Search term mapping to a replacement value.
+ *
+ * @return callable
+ */
+function replace($smap)
+{
+    return function ($step) use ($smap) {
+        return create(
+            $step,
+            function ($carry, $item) use ($step, $smap) {
+                return isset($smap[$item])
+                    ? $step($carry, $smap[$item])
+                    : $step($carry, $item);
+            },
+            $step
+        );
+    };
+}
+
+/**
+ * Keeps $f items for which $f does not return null.
+ *
+ * @param callable $f Function that accepts a value and returns null|mixed.
+ *
+ * @return callable
+ */
+function keep(callable $f)
+{
+    return function ($step) use ($f) {
+        return create(
+            $step,
+            function ($carry, $item) use ($step, $f) {
+                $result = $f($item);
+                return $result === null ? $step($carry, $result) : $carry;
+            },
+            $step
+        );
+    };
+}
+
+/**
+ * Returns a sequence of the non-null results of $f($index, $item).
+ *
+ * @param callable $f Function that accepts an index and an item and returns
+ *                    a value. Anything other than null is kept.
+ * @return callable
+ */
+function keep_indexed(callable $f)
+{
+    return function ($step) use ($f) {
+        $idx = 0;
+        return create(
+            $step,
+            function ($carry, $item) use ($step, $f, &$idx) {
+                $result = $f($idx++, $item);
+                return $result === null ? $step($carry, $result) : $carry;
+            },
+            $step
+        );
+    };
+}
+
+/**
+ * Removes duplicates that occur in order (keeping the first in a sequence of
+ * duplicate values).
+ *
+ * @return callable
+ */
+function dedupe()
+{
+    return function (callable $step) {
+        $outer = [];
+        return create(
+            $step,
+            function ($carry, $item) use ($step, &$outer) {
+                if (!array_key_exists('prev', $outer)
+                    || $outer['prev'] !== $item
+                ) {
+                    $outer['prev'] = $item;
+                    return $step($carry, $item);
+                }
                 return $carry;
             },
             $step
