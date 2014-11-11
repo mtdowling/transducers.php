@@ -1,0 +1,23 @@
+{
+  "name": "mtdowling/transducers.php",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Michael Dowling",
+      "email": "mtdowling@gmail.com",
+      "homepage": "https://github.com/mtdowling"
+    }
+  ],
+  "require": {
+    "php": ">=5.4.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "~4.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Transducers\\": "src/"
+    },
+    "files": ["src/functions.php"]
+  }
+}
