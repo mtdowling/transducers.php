@@ -486,6 +486,33 @@ function dedupe()
 }
 
 /**
+ * Adds a separator between each item in the sequence.
+ *
+ * @param mixed $separator Separator to interpose
+ *
+ * @return callable
+ */
+function interpose($separator)
+{
+    return function (callable $step) use ($separator) {
+        $triggered = 0;
+        return create(
+            $step,
+            function ($carry, $item) use ($step, $separator, &$triggered) {
+                if (!$triggered) {
+                    $triggered = true;
+                    return $step($carry, $item);
+                } elseif (is_array($carry)) {
+                    return $step($step($carry, $separator), $item);
+                }
+                throw new \InvalidArgumentException('Value must be an array');
+            },
+            $step
+        );
+    };
+}
+
+/**
  * Transduces items from $coll into the given $target.
  *
  * @param mixed    $target Where items are appended.
