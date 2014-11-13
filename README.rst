@@ -32,7 +32,7 @@ Usage
     use Transducers as T;
 
     $result = T\transduce(
-        T\comp([
+        T\comp(
             // Flatten the sequence
             T\mapcat('Transducers\identity'),
             // Multiply each value * 2
@@ -45,7 +45,7 @@ Usage
             }),
             // Remove the first two entries
             T\drop(2)
-        ]),
+        ),
         // Append each element to an array.
         T\append(),
         // Data to filter

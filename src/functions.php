@@ -2,25 +2,34 @@
 namespace Transducers;
 
 /**
- * Composes functions using a reduce.
+ * Composes the provided variadic function arguments into a single function.
  *
  *     comp($f, $g) // returns $f($g(x))
  *
- * @param callable[] $fns Functions to compose.
- *
  * @return callable
  */
-function comp(array $fns)
+function comp()
 {
-    if (!$fns) {
-        throw new \InvalidArgumentException('Must provide an array of functions');
+    if (!$fns = func_get_args()) {
+        throw new \InvalidArgumentException('Requires an array of functions');
     }
 
-    return array_reduce($fns, function (callable $f, callable $g) {
-        return function ($x) use ($f, $g) {
-            return $f($g($x));
+    $carry = array_shift($fns);
+
+    if (!is_callable($carry)) {
+        throw new \InvalidArgumentException('Each argument must be callable');
+    }
+
+    foreach ($fns as $fn) {
+        if (!is_callable($fn)) {
+            throw new \InvalidArgumentException('Each argument must be callable');
+        }
+        $carry = function ($x) use ($carry, $fn) {
+            return $carry($fn($x));
         };
-    }, array_shift($fns));
+    }
+
+    return $carry;
 }
 
 /**
@@ -268,7 +277,7 @@ function cat(callable $step)
  */
 function mapcat(callable $f)
 {
-    return comp([map($f), 'Transducers\cat']);
+    return comp(map($f), 'Transducers\cat');
 }
 
 /**
