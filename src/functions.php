@@ -61,8 +61,8 @@ function create(callable $init, callable $step, callable $complete)
     return function () use ($init, $step, $complete) {
         $args = func_get_args();
         switch (count($args)) {
-            case 0: return $init();
             case 2: return $step($args[0], $args[1]);
+            case 0: return $init();
             case 1: return $complete($args[0]);
             default: throw new \InvalidArgumentException('Invalid arity');
         }
@@ -78,9 +78,7 @@ function create(callable $init, callable $step, callable $complete)
  */
 function sequence($coll)
 {
-    if (is_array($coll)) {
-        return $coll;
-    } elseif ($coll instanceof \Traversable) {
+    if (is_array($coll) || $coll instanceof \Traversable) {
         return $coll;
     }
 
