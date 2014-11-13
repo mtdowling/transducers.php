@@ -509,10 +509,9 @@ function interpose($separator)
                 if (!$triggered) {
                     $triggered = true;
                     return $step($carry, $item);
-                } elseif (is_array($carry)) {
+                } else {
                     return $step($step($carry, $separator), $item);
                 }
-                throw new \InvalidArgumentException('Value must be an array');
             },
             $step
         );
