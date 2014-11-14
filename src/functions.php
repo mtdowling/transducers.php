@@ -14,9 +14,9 @@ function comp()
         throw new \InvalidArgumentException('Requires an array of functions');
     }
 
-    $carry = array_shift($fns);
+    $result = array_shift($fns);
 
-    if (!is_callable($carry)) {
+    if (!is_callable($result)) {
         throw new \InvalidArgumentException('Each argument must be callable');
     }
 
@@ -24,12 +24,12 @@ function comp()
         if (!is_callable($fn)) {
             throw new \InvalidArgumentException('Each argument must be callable');
         }
-        $carry = function ($x) use ($carry, $fn) {
-            return $carry($fn($x));
+        $result = function ($x) use ($result, $fn) {
+            return $result($fn($x));
         };
     }
 
-    return $carry;
+    return $result;
 }
 
 /**
@@ -60,7 +60,7 @@ function identity($value)
  * Creates a transducer function.
  *
  * @param callable $init     Initialization function.
- * @param callable $step     Step function (accepts $carry, $item)
+ * @param callable $step     Step function (accepts $result, $input)
  * @param callable $complete Complete function that accepts a single value.
  *
  * @return callable
@@ -136,7 +136,7 @@ function stream()
  * Reduces the given iterable using the provided reduce function $fn. The
  * reduction is short-circuited if $fn returns an instance of Reduced.
  *
- * @param callable $fn          Reduce function that accepts ($carry, $item)
+ * @param callable $fn          Reduce function that accepts ($result, $input)
  * @param mixed    $iterable    Array|Traversable|Iterator
  * @param null     $initializer Initial value to use with the reduce function.
  *
@@ -144,15 +144,15 @@ function stream()
  */
 function reduce(callable $fn, $iterable, $initializer = null)
 {
-    $carry = $initializer;
-    foreach (sequence($iterable) as $item) {
-        $carry = $fn($carry, $item);
-        if ($carry instanceof Reduced) {
-            return $carry->value;
+    $result = $initializer;
+    foreach (sequence($iterable) as $input) {
+        $result = $fn($result, $input);
+        if ($result instanceof Reduced) {
+            return $result->value;
         }
     }
 
-    return $carry;
+    return $result;
 }
 
 /**
@@ -171,19 +171,23 @@ function reduce(callable $fn, $iterable, $initializer = null)
  * etc. If $coll contains no items, returns init and $f is not called.
  *
  * @param callable $xf   Transformation function
- * @param callable $f    Reduction function
+ * @param callable $step Reducing step function. This function has three
+ *                       arities: 0 -> returns an initial value, 2 -> accepts a
+ *                       result over result and new value and returns a new
+ *                       value, 1 -> accepts the completed results and returns
+ *                       a completed result.
  * @param mixed    $coll The iterable collection to transduce.
  * @param mixed    $init The first initialization value of the reduction.
  *
  * @return mixed
  */
-function transduce(callable $xf, callable $f, $coll, $init = null)
+function transduce(callable $xf, callable $step, $coll, $init = null)
 {
     if ($init === null) {
-        return transduce($xf, $f, $coll, $f());
+        return transduce($xf, $step, $coll, $step());
     }
 
-    $reducer = $xf($f);
+    $reducer = $xf($step);
     $result = $reducer(reduce($reducer, $coll, $init));
 
     return $result instanceof Reduced ? $result->value : $result;
@@ -201,8 +205,8 @@ function map(callable $f)
     return function (callable $step) use ($f) {
         return create(
             $step,
-            function ($carry, $item) use ($step, $f) {
-                return $step($carry, $f($item));
+            function ($result, $input) use ($step, $f) {
+                return $step($result, $f($input));
             },
             $step
         );
@@ -221,8 +225,8 @@ function filter(callable $pred)
     return function (callable $step) use ($pred) {
         return create(
             $step,
-            function ($carry, $item) use ($pred, $step) {
-                return $pred($item) ? $step($carry, $item) : $carry;
+            function ($result, $input) use ($pred, $step) {
+                return $pred($input) ? $step($result, $input) : $result;
             },
             $step
         );
@@ -241,8 +245,8 @@ function remove(callable $pred)
     return function (callable $step) use ($pred) {
         return create(
             $step,
-            function ($carry, $item) use ($pred, $step) {
-                return !$pred($item) ? $step($carry, $item) : $carry;
+            function ($result, $input) use ($pred, $step) {
+                return !$pred($input) ? $step($result, $input) : $result;
             },
             $step
         );
@@ -260,8 +264,8 @@ function cat(callable $step)
 {
     return create(
         $step,
-        function ($carry, $item) use ($step) {
-            return array_reduce((array) $item, $step, $carry);
+        function ($result, $input) use ($step) {
+            return array_reduce((array) $input, $step, $result);
         },
         $step
     );
@@ -295,9 +299,9 @@ function take($n)
             $step,
             $n <= 0
                 ? 'Transducers\identity'
-                : function ($carry, $item) use (&$remaining, $step) {
-                    $carry = $step($carry, $item);
-                    return --$remaining ? $carry : ensure_reduced($carry);
+                : function ($result, $input) use (&$remaining, $step) {
+                    $result = $step($result, $input);
+                    return --$remaining ? $result : ensure_reduced($result);
                 },
             $step
         );
@@ -316,10 +320,10 @@ function take_while(callable $pred)
     return function (callable $step) use ($pred) {
         return create(
             $step,
-            function ($carry, $item) use ($pred, $step) {
-                return $pred($item)
-                    ? $step($carry, $item)
-                    : new Reduced($carry);
+            function ($result, $input) use ($pred, $step) {
+                return $pred($input)
+                    ? $step($result, $input)
+                    : new Reduced($result);
             },
             $step
         );
@@ -339,8 +343,8 @@ function take_nth($nth)
         $i = 0;
         return create(
             $step,
-            function ($carry, $item) use ($step, &$i, $nth) {
-                return $i++ % $nth ? $carry : $step($carry, $item);
+            function ($result, $input) use ($step, &$i, $nth) {
+                return $i++ % $nth ? $result : $step($result, $input);
             },
             $step
         );
@@ -360,8 +364,8 @@ function drop($n)
         $remaining = $n;
         return create(
             $step,
-            function ($carry, $item) use ($step, &$remaining) {
-                return $remaining-- > 0 ? $carry : $step($carry, $item);
+            function ($result, $input) use ($step, &$remaining) {
+                return $remaining-- > 0 ? $result : $step($result, $input);
             },
             $step
         );
@@ -382,17 +386,17 @@ function drop_while(callable $pred)
         $trigger = false;
         return create(
             $step,
-            function ($carry, $item) use ($step, $pred, &$trigger) {
+            function ($result, $input) use ($step, $pred, &$trigger) {
                 if ($trigger) {
                     // No longer dropping.
-                    return $step($carry, $item);
-                } elseif (!$pred($item)) {
+                    return $step($result, $input);
+                } elseif (!$pred($input)) {
                     // Predicate failed so stop dropping.
                     $trigger = true;
-                    return $step($carry, $item);
+                    return $step($result, $input);
                 }
                 // Currently dropping
-                return $carry;
+                return $result;
             },
             $step
         );
@@ -413,10 +417,10 @@ function replace($smap)
     return function ($step) use ($smap) {
         return create(
             $step,
-            function ($carry, $item) use ($step, $smap) {
-                return isset($smap[$item])
-                    ? $step($carry, $smap[$item])
-                    : $step($carry, $item);
+            function ($result, $input) use ($step, $smap) {
+                return isset($smap[$input])
+                    ? $step($result, $smap[$input])
+                    : $step($result, $input);
             },
             $step
         );
@@ -435,9 +439,9 @@ function keep(callable $f)
     return function ($step) use ($f) {
         return create(
             $step,
-            function ($carry, $item) use ($step, $f) {
-                $result = $f($item);
-                return $result === null ? $step($carry, $result) : $carry;
+            function ($result, $input) use ($step, $f) {
+                $result = $f($input);
+                return $result === null ? $step($result, $result) : $result;
             },
             $step
         );
@@ -445,7 +449,7 @@ function keep(callable $f)
 }
 
 /**
- * Returns a sequence of the non-null results of $f($index, $item).
+ * Returns a sequence of the non-null results of $f($index, $input).
  *
  * @param callable $f Function that accepts an index and an item and returns
  *                    a value. Anything other than null is kept.
@@ -457,9 +461,9 @@ function keep_indexed(callable $f)
         $idx = 0;
         return create(
             $step,
-            function ($carry, $item) use ($step, $f, &$idx) {
-                $result = $f($idx++, $item);
-                return $result === null ? $step($carry, $result) : $carry;
+            function ($result, $input) use ($step, $f, &$idx) {
+                $result = $f($idx++, $input);
+                return $result === null ? $step($result, $result) : $result;
             },
             $step
         );
@@ -478,14 +482,14 @@ function dedupe()
         $outer = [];
         return create(
             $step,
-            function ($carry, $item) use ($step, &$outer) {
+            function ($result, $input) use ($step, &$outer) {
                 if (!array_key_exists('prev', $outer)
-                    || $outer['prev'] !== $item
+                    || $outer['prev'] !== $input
                 ) {
-                    $outer['prev'] = $item;
-                    return $step($carry, $item);
+                    $outer['prev'] = $input;
+                    return $step($result, $input);
                 }
-                return $carry;
+                return $result;
             },
             $step
         );
@@ -505,12 +509,12 @@ function interpose($separator)
         $triggered = 0;
         return create(
             $step,
-            function ($carry, $item) use ($step, $separator, &$triggered) {
+            function ($result, $input) use ($step, $separator, &$triggered) {
                 if (!$triggered) {
                     $triggered = true;
-                    return $step($carry, $item);
+                    return $step($result, $input);
                 } else {
-                    return $step($step($carry, $separator), $item);
+                    return $step($step($result, $separator), $input);
                 }
             },
             $step
