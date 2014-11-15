@@ -388,7 +388,7 @@ function take_while(callable $pred)
             function ($result, $input) use ($pred, $step) {
                 return $pred($input)
                     ? $step($result, $input)
-                    : new Reduced($result);
+                    : ensure_reduced($result);
             },
             $step
         );
