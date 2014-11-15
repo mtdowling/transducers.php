@@ -321,6 +321,35 @@ function mapcat(callable $f)
 }
 
 /**
+ * Chunks the input sequence into chunks of the specified size.
+ *
+ * @param int $size Size to make each chunk (except possibly the last chunk)
+ *
+ * @return callable
+ */
+function chunk($size)
+{
+    return function (callable $step) use ($size) {
+        $buffer = [];
+        return create(
+            $step,
+            function ($result, $input) use ($step, &$buffer, $size) {
+                $buffer[] = $input;
+                if (count($buffer) == $size) {
+                    $result = $step($result, $buffer);
+                    $buffer = [];
+                    return $result;
+                }
+                return $result;
+            },
+            function ($result) use (&$buffer, $step) {
+                return $buffer ? $step($result, $buffer) : $result;
+            }
+        );
+    };
+}
+
+/**
  * Takes $n number of values from a collection.
  *
  * @param int $n Number of value to take
