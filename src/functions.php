@@ -477,7 +477,7 @@ function drop_while(callable $pred)
  *
  * @return callable
  */
-function replace($smap)
+function replace(array $smap)
 {
     return function ($step) use ($smap) {
         return create(
