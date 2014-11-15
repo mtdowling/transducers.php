@@ -14,7 +14,7 @@ function comp()
     $total = count($fns);
 
     return function ($value) use ($fns, $total) {
-        for ($i = $total - 1; $i > 0; $i--) {
+        for ($i = $total - 1; $i > -1; $i--) {
             $value = $fns[$i]($value);
         }
         return $value;
@@ -53,6 +53,7 @@ function identity($value)
  * @param callable $complete Complete function that accepts a single value.
  *
  * @return callable
+ * @throws \InvalidArgumentException
  */
 function create(callable $init, callable $step, callable $complete)
 {
@@ -65,22 +66,6 @@ function create(callable $init, callable $step, callable $complete)
             default: throw new \InvalidArgumentException('Invalid arity');
         }
     };
-}
-
-/**
- * Returns a value that can be used in a for-loop.
- *
- * @param mixed $coll Collection to iterate
- *
- * @return array|\Traversable|\Iterator
- */
-function sequence($coll)
-{
-    if (is_array($coll) || $coll instanceof \Traversable) {
-        return $coll;
-    }
-
-    throw new \InvalidArgumentException('Invalid collection');
 }
 
 /**
@@ -122,19 +107,78 @@ function stream()
 }
 
 /**
+ * Transduces items from $coll into the given $target, in essence "pouring"
+ * transformed data from one source into another data type.
+ *
+ * @param array|\ArrayAccess|resource    $target Where items are appended.
+ * @param callable                       $xf     Transducer function.
+ * @param mixed                          $coll   Sequence of data
+ *
+ * @return mixed
+ * @throws \InvalidArgumentException
+ */
+function into($target, callable $xf, $coll)
+{
+    if (is_array($target) || $target instanceof \ArrayAccess) {
+        return transduce($xf, append(), $coll, $target);
+    } elseif (is_resource($target)) {
+        return transduce($xf, stream(), $coll, $target);
+    }
+
+    throw _type_error('into', $coll);
+}
+
+/**
+ * Lazily applies the transducer $xf to the $input iterator.
+ *
+ * @param \Iterator $coll Input data to transform.
+ * @param callable  $xf   Transducer to apply.
+ *
+ * @return \Iterator Returns an iterator that lazily applies transformations.
+ */
+function iter(\Iterator $coll, callable $xf)
+{
+    return new LazyTransformer($coll, $xf);
+}
+
+/**
+ * Returns the same data type passed in as $coll with $xf applied.
+ *
+ * @param array|\Iterator|resource $coll Data to transform.
+ * @param callable                 $xf   Transducer to apply.
+ * @return LazyTransformer
+ * @throws \InvalidArgumentException
+ */
+function seq($coll, callable $xf)
+{
+    if (is_array($coll)) {
+        return transduce($xf, append(), $coll, []);
+    } elseif ($coll instanceof \Iterator) {
+        return new LazyTransformer($coll, $xf);
+    } elseif (is_resource($coll)) {
+
+    }
+
+    throw _type_error('seq', $coll);
+}
+
+/**
  * Reduces the given iterable using the provided reduce function $fn. The
  * reduction is short-circuited if $fn returns an instance of Reduced.
  *
- * @param callable $fn          Reduce function that accepts ($result, $input)
- * @param mixed    $iterable    Array|Traversable|Iterator
- * @param null     $initializer Initial value to use with the reduce function.
- *
+ * @param callable                     $fn          Reduce function.
+ * @param array|\Traversable|\Iterator $coll        Data to transform.
+ * @param mixed                        $initializer Initial reduction value.
  * @return mixed Returns the reduced value
  */
-function reduce(callable $fn, $iterable, $initializer = null)
+function reduce(callable $fn, $coll, $initializer = null)
 {
+    if (!is_array($coll) && !($coll instanceof \Traversable)) {
+        throw _type_error('reduce', $coll);
+    }
+
     $result = $initializer;
-    foreach (sequence($iterable) as $input) {
+    foreach ($coll as $input) {
         $result = $fn($result, $input);
         if ($result instanceof Reduced) {
             return $result->value;
@@ -253,7 +297,10 @@ function cat()
         return create(
             $step,
             function ($result, $input) use ($step) {
-                return array_reduce((array) $input, $step, $result);
+                foreach ((array) $input as $value) {
+                    $result = $step($result, $value);
+                }
+                return $result;
             },
             $step
         );
@@ -429,8 +476,8 @@ function keep(callable $f)
         return create(
             $step,
             function ($result, $input) use ($step, $f) {
-                $result = $f($input);
-                return $result === null ? $step($result, $result) : $result;
+                $value = $f($input);
+                return $value === null ? $step($result, $value) : $result;
             },
             $step
         );
@@ -451,8 +498,8 @@ function keep_indexed(callable $f)
         return create(
             $step,
             function ($result, $input) use ($step, $f, &$idx) {
-                $result = $f($idx++, $input);
-                return $result === null ? $step($result, $result) : $result;
+                $value = $f($idx++, $input);
+                return $value === null ? $step($result, $value) : $result;
             },
             $step
         );
@@ -512,21 +559,20 @@ function interpose($separator)
 }
 
 /**
- * Transduces items from $coll into the given $target.
+ * @param string $name Name of the function that was called.
+ * @param mixed  $coll Data that was provided.
  *
- * @param mixed    $target Where items are appended.
- * @param callable $xf     Transducer function.
- * @param mixed    $coll   Sequence of data
- *
- * @return mixed
+ * @return \InvalidArgumentException
  */
-function into($target, callable $xf, $coll)
+function _type_error($name, $coll)
 {
-    if (is_array($target) || $target instanceof \ArrayAccess) {
-        return transduce($xf, append(), $coll, $target);
-    } elseif (is_resource($target)) {
-        return transduce($xf, stream(), $coll, $target);
+    if (is_object($coll)) {
+        $description = get_class($coll);
+    } else {
+        ob_start();
+        var_dump($coll);
+        $description = ob_end_clean();
     }
-
-    throw new \InvalidArgumentException('Unknown target provided');
+    return new \InvalidArgumentException("Do not know how to $name collection: "
+        . $description);
 }

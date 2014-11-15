@@ -15,9 +15,10 @@
     "phpunit/phpunit": "~4.0"
   },
   "autoload": {
-    "psr-4": {
-      "Transducers\\": "src/"
-    },
-    "files": ["src/functions.php"]
+    "files": [
+      "src/functions.php",
+      "src/Reduced.php",
+      "src/LazyTransformer.php"
+    ]
   }
 }
