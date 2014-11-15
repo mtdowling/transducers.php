@@ -10,26 +10,15 @@ namespace Transducers;
  */
 function comp()
 {
-    if (!$fns = func_get_args()) {
-        throw new \InvalidArgumentException('Requires an array of functions');
-    }
+    $fns = func_get_args();
+    $total = count($fns);
 
-    $result = array_shift($fns);
-
-    if (!is_callable($result)) {
-        throw new \InvalidArgumentException('Each argument must be callable');
-    }
-
-    foreach ($fns as $fn) {
-        if (!is_callable($fn)) {
-            throw new \InvalidArgumentException('Each argument must be callable');
+    return function ($value) use ($fns, $total) {
+        for ($i = $total - 1; $i > 0; $i--) {
+            $value = $fns[$i]($value);
         }
-        $result = function ($x) use ($result, $fn) {
-            return $result($fn($x));
-        };
-    }
-
-    return $result;
+        return $value;
+    };
 }
 
 /**
@@ -125,7 +114,7 @@ function stream()
             return fopen('php://temp', 'w+');
         },
         function ($r, $x) {
-            \fwrite($r, $x);
+            fwrite($r, $x);
             return $r;
         },
         'Transducers\identity'
@@ -184,7 +173,7 @@ function reduce(callable $fn, $iterable, $initializer = null)
 function transduce(callable $xf, callable $step, $coll, $init = null)
 {
     if ($init === null) {
-        return transduce($xf, $step, $coll, $step());
+        $init = $step();
     }
 
     $reducer = $xf($step);
@@ -256,19 +245,19 @@ function remove(callable $pred)
 /**
  * Concatenates items from nested lists.
  *
- * @param callable $step Step function to apply to each cat
- *
  * @return callable
  */
-function cat(callable $step)
+function cat()
 {
-    return create(
-        $step,
-        function ($result, $input) use ($step) {
-            return array_reduce((array) $input, $step, $result);
-        },
-        $step
-    );
+    return function (callable $step) {
+        return create(
+            $step,
+            function ($result, $input) use ($step) {
+                return array_reduce((array) $input, $step, $result);
+            },
+            $step
+        );
+    };
 }
 
 /**
@@ -281,7 +270,7 @@ function cat(callable $step)
  */
 function mapcat(callable $f)
 {
-    return comp(map($f), 'Transducers\cat');
+    return comp(map($f), cat());
 }
 
 /**
