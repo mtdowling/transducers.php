@@ -230,7 +230,7 @@ nesting.
 chunk()
 ~~~~~~~
 
-..code-block: php
+.. code-block:: php
 
     function chunk($size)
 
@@ -263,8 +263,8 @@ take_nth()
 
 Takes every nth item from a sequence of values.
 
-drop($n)
-~~~~~~~~
+drop()
+~~~~~~
 
 .. code-block:: php
 
