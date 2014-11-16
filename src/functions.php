@@ -11,10 +11,10 @@ namespace Transducers;
 function comp()
 {
     $fns = func_get_args();
-    $total = count($fns);
+    $total = count($fns) - 1;
 
     return function ($value) use ($fns, $total) {
-        for ($i = $total - 1; $i > -1; $i--) {
+        for ($i = $total; $i > -1; $i--) {
             $value = $fns[$i]($value);
         }
         return $value;
@@ -57,12 +57,11 @@ function identity($value)
  */
 function create(callable $init, callable $step, callable $complete)
 {
-    return function () use ($init, $step, $complete) {
-        $args = func_get_args();
-        switch (count($args)) {
-            case 2: return $step($args[0], $args[1]);
+    return function ($result = null, $input = null) use ($init, $step, $complete) {
+        switch (func_num_args()) {
+            case 2: return $step($result, $input);
             case 0: return $init();
-            case 1: return $complete($args[0]);
+            case 1: return $complete($result);
             default: throw new \InvalidArgumentException('Invalid arity');
         }
     };
