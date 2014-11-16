@@ -181,59 +181,154 @@ lazily and create an iterator that applies ``$xf`` to each yielded value.
 Available Transducers
 ---------------------
 
-``map(callable $f)``
-    Applies a map function ``$f`` to each value in a collection.
+map()
+~~~~~
 
-``filter(callable $pred)``
-     Filters values that do not satisfy the predicate function ``$pred``.
+.. code-block:: php
 
-``remove(callable $pred)``
-    Removes anything from a sequence that satisfied ``$pred``.
+    function map(callable $f)
 
-``cat()``
-    Concatenates items from nested lists.
+Applies a map function ``$f`` to each value in a collection.
 
-``mapcat(callable $f)``
-    Applies a map function to a collection and cats them into one less level of
-    nesting.
+filter()
+~~~~~~~~
 
-``chunk($size)``
-    Chunks the input sequence into chunks of the specified size.
+.. code-block:: php
 
-``take(callable $pred)``
-    Takes ``$n`` number of values from a collection.
+    function filter(callable $pred)
 
-``take_while(callable $pred)``
-    Takes from a collection while the predicate function ``$pred`` returns
-    true.
+Filters values that do not satisfy the predicate function ``$pred``.
 
-``take_nth($nth)``
-    Takes every nth item from a sequence of values.
+remove()
+~~~~~~~~
 
-``drop($n)``
-    Drops ``$n`` items from the beginning of the input sequence.
+.. code-block:: php
 
-``drop_while(callable $pred)``
-    Drops values from a sequence so long as the predicate function ``$pred``
-    returns true.
+    function remove(callable $pred)
 
-``replace(array $smap)``
-    Given a map of replacement pairs and a collection, returns a sequence where
-    any elements equal to a key in ``$smap`` are replaced with the
-    corresponding ``$smap`` value.
+Removes anything from a sequence that satisfied ``$pred``.
 
-``keep(callable $f)``
-    Keeps $f items for which $f does not return null.
+cat()
+~~~~~
 
-``keep_indexed(callable $f)``
-    Returns a sequence of the non-null results of ``$f($index, $input)``.
+.. code-block:: php
 
-``dedupe()``
-    Removes duplicates that occur in order (keeping the first in a sequence of
-    duplicate values).
+    function cat()
 
-``interpose($separator)``
-    Adds a separator between each item in the sequence.
+Concatenates items from nested lists.
+
+mapcat()
+~~~~~~~~
+
+.. code-block:: php
+
+    function mapcat(callable $f)
+
+Applies a map function to a collection and cats them into one less level of
+nesting.
+
+chunk()
+~~~~~~~
+
+..code-block: php
+
+    function chunk($size)
+
+Chunks the input sequence into chunks of the specified size.
+
+take()
+~~~~~~
+
+.. code-block:: php
+
+    function take($n);
+
+Takes ``$n`` number of values from a collection.
+
+take_while()
+~~~~~~~~~~~~
+
+.. code-block:: php
+
+    function take_while(callable $pred)
+
+Takes from a collection while the predicate function ``$pred`` returns true.
+
+take_nth()
+~~~~~~~~~~
+
+.. code-block:: php
+
+    function take_nth($nth)
+
+Takes every nth item from a sequence of values.
+
+drop($n)
+~~~~~~~~
+
+.. code-block:: php
+
+    function drop($n)
+
+Drops ``$n`` items from the beginning of the input sequence.
+
+drop_while()
+~~~~~~~~~~~~
+
+.. code-block:: php
+
+    function drop_while(callable $pred)
+
+Drops values from a sequence so long as the predicate function ``$pred``
+returns true.
+
+replace()
+~~~~~~~~~
+
+.. code-block:: php
+
+    function replace(array $smap)
+
+Given a map of replacement pairs and a collection, returns a sequence where any
+elements equal to a key in ``$smap`` are replaced with the corresponding
+``$smap`` value.
+
+keep()
+~~~~~~
+
+.. code-block:: php
+
+    function keep(callable $f)
+
+Keeps ``$f`` items for which ``$f`` does not return null.
+
+keep_indexed()
+~~~~~~~~~~~~~~
+
+.. code-block:: php
+
+    function keep_indexed(callable $f)
+
+Returns a sequence of the non-null results of ``$f($index, $input)``.
+
+dedupe()
+~~~~~~~~
+
+.. code-block:: php
+
+    function dedupe()
+
+Removes duplicates that occur in order (keeping the first in a sequence of
+duplicate values).
+
+interpose()
+~~~~~~~~~~~
+
+.. code-block:: php
+
+    function interpose($separator)
+
+Adds a separator between each item in the sequence.
 
 Creating Transducers
 --------------------
