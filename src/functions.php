@@ -129,7 +129,7 @@ function stream_iter($stream, $size = 1)
  *
  * @return \Iterator Returns an iterator that lazily applies transformations.
  */
-function iter($coll, callable $xf)
+function xfiter($coll, callable $xf)
 {
     $items = [];
     $reducer = $xf([
@@ -153,6 +153,13 @@ function iter($coll, callable $xf)
             break;
         }
     }
+
+    // Allow reducers to step on the final result.
+    $reducer['step']($result);
+
+    while ($items) {
+        yield array_shift($items);
+    }
 }
 
 /**
@@ -168,12 +175,81 @@ function seq($coll, callable $xf)
     if (is_array($coll)) {
         return transduce($xf, append(), $coll, []);
     } elseif ($coll instanceof \Iterator) {
-        return iter($coll, $xf);
+        return xfiter($coll, $xf);
     } elseif (is_resource($coll)) {
         return transduce($xf, stream(), stream_iter($coll));
     }
 
     throw _type_error('seq', $coll);
+}
+
+/**
+ * Converts an iterable into a sequence of data.
+ *
+ * When provided an indexed array, the array is returned as-is. When provided
+ * an associative array, an iterator is returned where each value is an array
+ * containing the [key, value]. When a stream is provided, an iterator is
+ * returned that yields bytes from the stream. When an iterator is provided,
+ * it is returned as-is. To force an iterator to be an indexed iterator, you
+ * must use the indexed_iter() function.
+ *
+ * @param array|\Iterator|resource $iterable Data to convert to a sequence.
+ *
+ * @return array|\Iterator
+ * @throws \InvalidArgumentException
+ */
+function vec($iterable)
+{
+    switch (gettype($iterable)) {
+        case 'array':
+            return !$iterable || array_keys($iterable)[0] === 0
+                ? $iterable
+                : indexed_iter($iterable);
+        case 'string': return str_split($iterable);
+        case 'resource': return stream_iter($iterable);
+        case 'object':
+            if ($iterable instanceof \Iterator) {
+                return $iterable;
+            }
+    }
+
+    throw _type_error('vec', $iterable);
+}
+
+/**
+ * Converts an iterable into an indexed array iterator where each value yielded
+ * is an array containing the key followed by the value.
+ *
+ * @param mixed $iterable Value to convert to an indexed iterator
+ *
+ * @return \Iterator
+ */
+function indexed_iter($iterable)
+{
+    foreach ($iterable as $key => $value) {
+        yield [$key, $value];
+    }
+}
+
+/**
+ * Convert a value to an array.
+ *
+ * @param mixed $iterable Value to convert.
+ *
+ * @return array
+ * @throws \InvalidArgumentException
+ */
+function to_array($iterable)
+{
+    if (is_array($iterable)) {
+        return $iterable;
+    } elseif ($iterable instanceof \Iterator) {
+        return iterator_to_array($iterable);
+    } elseif (is_string($iterable)) {
+        return str_split($iterable);
+    }
+
+    throw _type_error('to_array', $iterable);
 }
 
 /**
@@ -513,7 +589,7 @@ function keep(callable $f)
             'result' => $xf['result'],
             'step'   => function ($result, $input) use ($xf, $f) {
                 $value = $f($input);
-                return $value === null
+                return $value !== null
                     ? $xf['step']($result, $value)
                     : $result;
             }
@@ -537,7 +613,7 @@ function keep_indexed(callable $f)
             'result' => $xf['result'],
             'step'   => function ($result, $input) use ($xf, $f, &$idx) {
                 $value = $f($idx++, $input);
-                return $value === null
+                return $value !== null
                     ? $xf['step']($result, $value)
                     : $result;
             }
