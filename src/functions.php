@@ -318,13 +318,13 @@ function mapcat(callable $f)
 }
 
 /**
- * Chunks the input sequence into chunks of the specified size.
+ * Partitions the input sequence into partitions of the specified size.
  *
- * @param int $size Size to make each chunk (except possibly the last chunk)
+ * @param int $size Size to make each partition (except possibly the last chunk)
  *
  * @return callable
  */
-function chunk($size)
+function partition($size)
 {
     return function (array $xf) use ($size) {
         $buffer = [];

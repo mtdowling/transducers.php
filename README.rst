@@ -277,12 +277,13 @@ mapcat()
 Applies a map function to a collection and cats them into one less level of
 nesting.
 
-chunk()
-~~~~~~~
+partition()
+~~~~~~~~~~~
 
-``function chunk($size)``
+``function partition($size)``
 
-Chunks the input sequence into chunks of the specified size.
+Partitions the source into arrays of size ``$size``. When transformer
+completes, the array will be stepped with any remaining items.
 
 take()
 ~~~~~~
