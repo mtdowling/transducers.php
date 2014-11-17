@@ -52,8 +52,8 @@ Transducers
 -----------
 
 Transducers are functions that return a function that accept a
-`transformer array <Transformer>`_ ``$xf`` and return a new transformer array
-that wraps the provided ``$xf`` transformer array.
+transformer-link_ ``$xf`` and return a new transformer array that wraps the
+provided ``$xf`` transformer array.
 
 Here's how to create a transducer that adds ``$n`` to each value:
 
@@ -75,10 +75,10 @@ Here's how to create a transducer that adds ``$n`` to each value:
 
     $result = T\into([], $inc(1), [1, 2, 3]); // Contains: 2, 3, 4
 
-.. _Transformer:
+.. _transformer-link:
 
-Transformer Arrays
-------------------
+Transformer Array
+-----------------
 
 Transformer arrays are PHP associative arrays that contain the following
 key value pairs:
@@ -116,7 +116,7 @@ transduce()
 Transform and reduce $coll by applying $xf($step)['step'] to each value.
 
 - ``callable $xf``: Transducer function to apply.
-- ``array $step``: `Transformer array <Transformer>`_ that has 'init',
+- ``array $step``: transformer-link_ that has 'init',
   'result', and 'step' keys that map to a callable.
 - ``$coll``: Data to transform. Can be an array, iterator, or PHP stream
   resource.
