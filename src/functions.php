@@ -70,11 +70,9 @@ function append()
 function stream()
 {
     return [
-        'init' => function () {
-            return fopen('php://temp', 'w+');
-        },
+        'init'   => function () { return fopen('php://temp', 'w+'); },
         'result' => 'Transducers\identity',
-        'step' => function ($result, $input) {
+        'step'   => function ($result, $input) {
             fwrite($result, $input);
             return $result;
         }
