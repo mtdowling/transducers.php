@@ -10,10 +10,6 @@ sources, they can be used in many different processes - collections, streams,
 channels, observables, etc. Transducers compose directly, without awareness of
 input or creation of intermediate aggregates.
 
-::
-
-    composer.phar install mtdowling/transducers-php
-
 For more information about Clojure transducers and transducer semantics see the
 introductory `blog post <http://blog.cognitect.com/blog/2014/8/6/transducers-are-coming>`_
 and this `video <https://www.youtube.com/watch?v=6mTbuzafcII>`_.
@@ -22,6 +18,10 @@ You can transduce anything that you can iterate over in a foreach-loop (e.g.,
 arrays, ``\Iterator``, ``Traversable``, ``Generator``, etc.). Transducers can
 be applied **eagerly** using ``transduce()`` or ``into()`` and **lazily** using
 ``iter()`` or ``seq()``.
+
+::
+
+    composer.phar install mtdowling/transducers-php
 
 Defining Transformations With Transducers
 -----------------------------------------
@@ -48,6 +48,60 @@ be used with ``Transducers\transduce()``, ``Transducers\iter()``,
     T\seq([1, 2, 3, 4, 5, 6, 7, 8], $xf);
     // Returns: [3, 4, 5, 6, 7]
 
+Transducers
+-----------
+
+Transducers are functions that return a function that accept a
+`transformer array <Transformer>`_ ``$xf`` and return a new transformer array
+that wraps the provided ``$xf`` transformer array.
+
+Here's how to create a transducer that adds 1 to each value:
+
+.. code-block:: php
+
+    function inc() {
+        // Return a function that accepts a transformer array $xf.
+        return function (array $xf) {
+            // Return a new transformer array that wraps $xf.
+            return [
+                'init'   => $xf['init'],
+                'result' => $xf['result'],
+                'step'   => function ($result, $input) use ($xf) {
+                    return $xf['step']($result, $input + 1);
+                }
+            ];
+        }
+    };
+
+    $result = T\into([], $inc, [1, 2, 3]); // Contains: 2, 3, 4
+
+.. _Transformer:
+
+Transformer Arrays
+------------------
+
+Transformer arrays are PHP associative arrays that contain the following
+key value pairs:
+
+"init"
+    A function with arity 0. Invoked to initialize a transducer. This function
+    should call the 'init' function on the nested transformer array ``$xf``,
+    which will eventually call out to the transducing process. This function
+    is only called when an initial value is not provided while transducing.
+
+"step"
+    A function with arity 2. This is a standard reduction function but it
+    is expected to call the ``$xf['step']`` function 0 or more times as
+    appropriate in the transducer. For example, ``filter`` will choose (based
+    on the predicate) whether to call ``$xf`` or not. ``map`` will always call
+    it exactly once. ``cat`` may call it many times depending on the inputs.
+
+"result"
+    A function with arity 1. Some processes will not end, but for those that do
+    (like transduce), the 'result' function is used to produce a final value
+    and/or flush state. This function must call the ``$xf['result']`` function
+    exactly once.
+
 Using Transducers
 -----------------
 
@@ -57,26 +111,16 @@ methods that can be used to apply transducers.
 transduce()
 ~~~~~~~~~~~
 
-.. code-block:: php
-
-    function transduce(callable $xf, array $step, $coll, $init = null)
+``function transduce(callable $xf, array $step, $coll, $init = null)``
 
 Transform and reduce $coll by applying $xf($step)['step'] to each value.
 
-$xf
-    Transducer to apply.
+callable $xf
+    Transducer function to apply.
 
-$step
-    Transformation array that has the following keys:
-
-    - 'init': Called with no argument and creates an initial value. This is only
-      called if ``$init`` in ``null``.
-    - 'result': Called when the transformation is complete and is provided the
-      final result as a single argument. This function must then return a
-      result.
-    - 'step': Called with the current result in the first argument and the new
-      input to process in the second argument. This function is then expected
-      to return the new result.
+array $step
+    `Transformer array <Transformer>`_ that has 'init', 'result', and 'step'
+    keys that map to a callable.
 
 $coll
     Data to transform. Can be an array, iterator, or PHP stream resource.
@@ -113,9 +157,7 @@ the ``$step`` argument:
 into()
 ~~~~~~
 
-.. code-block:: php
-
-    function into($target, callable $xf, $coll)
+``function into($target, callable $xf, $coll)``
 
 Transduces items from ``$coll`` into the given ``$target``, in essence
 "pouring" transformed data from one source into another data type.
@@ -150,9 +192,7 @@ Transduces items from ``$coll`` into the given ``$target``, in essence
 iter()
 ~~~~~~
 
-.. code-block:: php
-
-    function iter($coll, callable $xf)
+``function iter($coll, callable $xf)``
 
 Creates an iterator that **lazily** applies the transducer ``$xf`` to the
 ``$input`` iterator. Use this function when dealing with large amounts of data
@@ -187,9 +227,7 @@ or when you want operations to occur only as needed.
 seq()
 ~~~~~
 
-.. code-block:: php
-
-    function seq($coll, callable $xf)
+``function seq($coll, callable $xf)``
 
 Returns the same data type passed in as ``$coll`` with ``$xf`` applied. When
 ``$coll`` is an array, ``seq`` will pour that transformed data from ``$coll``
@@ -202,45 +240,35 @@ Available Transducers
 map()
 ~~~~~
 
-.. code-block:: php
-
-    function map(callable $f)
+``function map(callable $f)``
 
 Applies a map function ``$f`` to each value in a collection.
 
 filter()
 ~~~~~~~~
 
-.. code-block:: php
-
-    function filter(callable $pred)
+``function filter(callable $pred)``
 
 Filters values that do not satisfy the predicate function ``$pred``.
 
 remove()
 ~~~~~~~~
 
-.. code-block:: php
-
-    function remove(callable $pred)
+``function remove(callable $pred)``
 
 Removes anything from a sequence that satisfied ``$pred``.
 
 cat()
 ~~~~~
 
-.. code-block:: php
-
-    function cat()
+``function cat()``
 
 Concatenates items from nested lists.
 
 mapcat()
 ~~~~~~~~
 
-.. code-block:: php
-
-    function mapcat(callable $f)
+``function mapcat(callable $f)``
 
 Applies a map function to a collection and cats them into one less level of
 nesting.
@@ -248,54 +276,42 @@ nesting.
 chunk()
 ~~~~~~~
 
-.. code-block:: php
-
-    function chunk($size)
+``function chunk($size)``
 
 Chunks the input sequence into chunks of the specified size.
 
 take()
 ~~~~~~
 
-.. code-block:: php
-
-    function take($n);
+``function take($n);``
 
 Takes ``$n`` number of values from a collection.
 
 take_while()
 ~~~~~~~~~~~~
 
-.. code-block:: php
-
-    function take_while(callable $pred)
+``function take_while(callable $pred)``
 
 Takes from a collection while the predicate function ``$pred`` returns true.
 
 take_nth()
 ~~~~~~~~~~
 
-.. code-block:: php
-
-    function take_nth($nth)
+``function take_nth($nth)``
 
 Takes every nth item from a sequence of values.
 
 drop()
 ~~~~~~
 
-.. code-block:: php
-
-    function drop($n)
+``function drop($n)``
 
 Drops ``$n`` items from the beginning of the input sequence.
 
 drop_while()
 ~~~~~~~~~~~~
 
-.. code-block:: php
-
-    function drop_while(callable $pred)
+``function drop_while(callable $pred)``
 
 Drops values from a sequence so long as the predicate function ``$pred``
 returns true.
@@ -303,9 +319,7 @@ returns true.
 replace()
 ~~~~~~~~~
 
-.. code-block:: php
-
-    function replace(array $smap)
+``function replace(array $smap)``
 
 Given a map of replacement pairs and a collection, returns a sequence where any
 elements equal to a key in ``$smap`` are replaced with the corresponding
@@ -314,27 +328,21 @@ elements equal to a key in ``$smap`` are replaced with the corresponding
 keep()
 ~~~~~~
 
-.. code-block:: php
-
-    function keep(callable $f)
+``function keep(callable $f)``
 
 Keeps ``$f`` items for which ``$f`` does not return null.
 
 keep_indexed()
 ~~~~~~~~~~~~~~
 
-.. code-block:: php
-
-    function keep_indexed(callable $f)
+``function keep_indexed(callable $f)``
 
 Returns a sequence of the non-null results of ``$f($index, $input)``.
 
 dedupe()
 ~~~~~~~~
 
-.. code-block:: php
-
-    function dedupe()
+``function dedupe()``
 
 Removes duplicates that occur in order (keeping the first in a sequence of
 duplicate values).
@@ -342,58 +350,6 @@ duplicate values).
 interpose()
 ~~~~~~~~~~~
 
-.. code-block:: php
-
-    function interpose($separator)
+``function interpose($separator)``
 
 Adds a separator between each item in the sequence.
-
-Creating Transducers
---------------------
-
-Transducers are functions that return transformation arrays. The returned
-transformation array accepts a
-
-Transducers are functions that return a function that accept a transformation
-array ``$xf`` and return a new transformation array that uses the provided
-``$xf`` transformation array.
-
-Here's how to create a mapping transducer that adds 1 to each value:
-
-.. code-block:: php
-
-    function inc() {
-        return function (array $xf) {
-            return [
-                'init'   => $xf['init'],
-                'result' => $xf['result'],
-                'step'   => function ($result, $input) use ($xf) {
-                    return $xf['step']($result, $input + 1);
-                }
-            ];
-        }
-    };
-
-    $result = T\into([], $inc, [1, 2, 3]); // Contains: 2, 3, 4
-
-Transformation arrays are PHP associative arrays that contain the following
-key value pairs:
-
-"init"
-    A function with arity 0. Invoked with no arguments to initialize a
-    transformation. This function should call the 'init' function on the nested
-    transformer array ``$xf``, which will eventually call out to the transducing
-    process.
-
-"step"
-    A function with arity 2. This is a standard reduction function but it
-    is expected to call the ``$xf`` ``step`` function 0 or more times as
-    appropriate in the transducer. For example, filter will choose (based on the
-    predicate) whether to call ``$xf`` or not. map will always call it exactly
-    once. cat may call it many times depending on the inputs.
-
-"result"
-    A function with arity 1. Some processes will not end, but for those that do
-    (like transduce), the completion arity is used to produce a final value
-    and/or flush state. This arity must call the ``$xf`` 'result' function
-    exactly once.
