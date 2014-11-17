@@ -92,4 +92,27 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $result = T\into([], $xf, $data);
         $this->assertEquals(['A', 'B', 'C'], $result);
     }
+
+    public function testFilters()
+    {
+        $data = [1, 2, 3, 4];
+        $odd = function ($value) { return $value % 2; };
+        $result = T\into([], T\filter($odd), $data);
+        $this->assertEquals([1, 3], $result);
+    }
+
+    public function testRemoves()
+    {
+        $data = [1, 2, 3, 4];
+        $odd = function ($value) { return $value % 2; };
+        $result = T\into([], T\remove($odd), $data);
+        $this->assertEquals([2, 4], $result);
+    }
+
+    public function testCats()
+    {
+        $data = [[1, 2], [3], [], [4, 5]];
+        $result = T\into([], T\cat(), $data);
+        $this->assertEquals($result, [1, 2, 3, 4, 5]);
+    }
 }

@@ -261,6 +261,13 @@ filter()
 
 Filters values that do not satisfy the predicate function ``$pred``.
 
+.. code-block:: php
+
+    $data = [1, 2, 3, 4];
+    $odd = function ($value) { return $value % 2; };
+    $result = T\into([], T\filter($odd), $data);
+    assert($result == [1, 3]);
+
 remove()
 ~~~~~~~~
 
@@ -268,12 +275,25 @@ remove()
 
 Removes anything from a sequence that satisfied ``$pred``.
 
+.. code-block:: php
+
+    $data = [1, 2, 3, 4];
+    $odd = function ($value) { return $value % 2; };
+    $result = T\into([], T\remove($odd), $data);
+    assert($result = [2, 4]);
+
 cat()
 ~~~~~
 
 ``function cat()``
 
 Concatenates items from nested lists.
+
+.. code-block:: php
+
+    $data = [[1, 2], [3], [], [4, 5]];
+    $result = T\into([], T\cat(), $data);
+    assert($result == [1, 2, 3, 4, 5]);
 
 mapcat()
 ~~~~~~~~
