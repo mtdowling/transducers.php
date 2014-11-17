@@ -40,7 +40,7 @@ function ensure_reduced($r)
  *
  * @return mixed
  */
-function identity($value)
+function identity($value = null)
 {
     return $value;
 }
@@ -102,16 +102,52 @@ function into($target, callable $xf, $coll)
 }
 
 /**
+ * Creates an iterator that reads from a stream.
+ *
+ * @param resource $stream fopen() resource.
+ * @param int      $size   Number of bytes to read for each read. Defaults to 1.
+ *
+ * @return \Iterator
+ */
+function stream_iter($stream, $size = 1)
+{
+    while (!feof($stream)) {
+        yield fread($stream, $size);
+    }
+}
+
+/**
  * Lazily applies the transducer $xf to the $input iterator.
  *
- * @param \Iterator $coll Input data to transform.
- * @param callable  $xf   Transducer to apply.
+ * @param mixed    $coll Iterable input to transform.
+ * @param callable $xf   Transducer to apply.
  *
  * @return \Iterator Returns an iterator that lazily applies transformations.
  */
-function iter(\Iterator $coll, callable $xf)
+function iter($coll, callable $xf)
 {
-    return new LazyTransformer($coll, $xf);
+    $items = [];
+    $reducer = $xf([
+        'init'   => 'Transducers\identity',
+        'result' => 'Transducers\identity',
+        'step'   => function ($result, $input) use (&$items) {
+            $items[] = $input;
+            return $result;
+        }
+    ]);
+
+    $result = null;
+    foreach ($coll as $input) {
+        $result = $reducer['step']($result, $input);
+        // Yield each queued value from the step function.
+        while ($items) {
+            yield array_shift($items);
+        }
+        // Break early if a Reduced is found.
+        if ($result instanceof Reduced) {
+            break;
+        }
+    }
 }
 
 /**
@@ -119,7 +155,7 @@ function iter(\Iterator $coll, callable $xf)
  *
  * @param array|\Iterator|resource $coll Data to transform.
  * @param callable                 $xf   Transducer to apply.
- * @return LazyTransformer
+ * @return mixed
  * @throws \InvalidArgumentException
  */
 function seq($coll, callable $xf)
@@ -127,9 +163,9 @@ function seq($coll, callable $xf)
     if (is_array($coll)) {
         return transduce($xf, append(), $coll, []);
     } elseif ($coll instanceof \Iterator) {
-        return new LazyTransformer($coll, $xf);
+        return iter($coll, $xf);
     } elseif (is_resource($coll)) {
-
+        return iter(stream_iter($coll), $xf);
     }
 
     throw _type_error('seq', $coll);
