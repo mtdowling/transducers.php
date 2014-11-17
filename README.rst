@@ -21,7 +21,7 @@ be applied **eagerly** using ``transduce()`` or ``into()`` and **lazily** using
 
 ::
 
-    composer.phar install mtdowling/transducers-php
+    composer.phar install mtdowling/transducers
 
 Defining Transformations With Transducers
 -----------------------------------------
