@@ -51,9 +51,9 @@ be used with ``Transducers\transduce()``, ``Transducers\iter()``,
 Transducers
 -----------
 
-Transducers are functions that return a function that accept a
-transformer-link_ ``$xf`` and return a new transformer array that wraps the
-provided ``$xf`` transformer array.
+Transducers are functions that return a function that accept a transformer
+array ``$xf`` and return a new transformer array that wraps the provided
+``$xf`` transformer array.
 
 Here's how to create a transducer that adds ``$n`` to each value:
 
@@ -116,8 +116,8 @@ transduce()
 Transform and reduce $coll by applying $xf($step)['step'] to each value.
 
 - ``callable $xf``: Transducer function to apply.
-- ``array $step``: transformer-link_ that has 'init',
-  'result', and 'step' keys that map to a callable.
+- ``array $step``: Transformer array that has 'init', 'result', and 'step' keys
+  that map to a callable.
 - ``$coll``: Data to transform. Can be an array, iterator, or PHP stream
   resource.
 - ``$init``: Optional first initialization value of the reduction.
