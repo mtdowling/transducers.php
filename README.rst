@@ -358,3 +358,45 @@ interpose()
 ``function interpose($separator)``
 
 Adds a separator between each item in the sequence.
+
+tap()
+~~~~~
+
+``function tap(callable $interceptor)``
+
+Invokes interceptor with each result and item, and then steps through
+unchanged.
+
+The primary purpose of this method is to "tap into" a method chain, in order
+to perform operations on intermediate results within the chain. Executes
+interceptor with current result and item.
+
+.. code-block:: php
+
+    $data = ['a', 'b', 'c'];
+
+    // echo each value as it passes through the tap function.
+    $tap = T\tap(function ($r, $x) {
+        echo $x . ', ';
+    });
+
+    $xf = T\comp(
+        $tap,
+        T\map(function ($v) { return strtoupper($v); }),
+        $tap
+    );
+
+    T\into([], $xf, $data);
+    // Prints: a, A, b, B, c, C,
+
+compact()
+~~~~~~~~~
+
+``function compact()``
+
+Trim out all falsey values.
+
+.. code-block:: php
+
+    T\into([], T\compact(), ['a', true, false, 'b', 0]);
+    //> Results in: ['a', true, 'b']
