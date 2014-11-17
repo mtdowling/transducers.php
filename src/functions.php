@@ -159,7 +159,7 @@ function reduce(callable $fn, $coll, $accum = null)
 }
 
 /**
- * Transform and reduce $coll by applying $xf and $step to each value.
+ * Transform and reduce $coll by applying $xf($step)['step'] to each value.
  *
  * Returns the result of applying the transformed $xf to 'init' and the first
  * item in the $coll, then applying $xf to that result and the second item,

@@ -61,28 +61,28 @@ transduce()
 
     function transduce(callable $xf, array $step, $coll, $init = null)
 
-Reduce with a transformation of f (xf).
+Transform and reduce $coll by applying $xf($step)['step'] to each value.
 
-* ``$xf``: Transducer to apply.
-* ``$step``: Transformation array that has the following keys:
-    * 'init': Called with no argument and creates an initial value. This is only
+- ``$xf``: Transducer to apply.
+- ``$step``: Transformation array that has the following keys:
+    - 'init': Called with no argument and creates an initial value. This is only
       called if ``$init`` in ``null``.
-    * 'result': Called when the transformation is complete and is provided the
+    - 'result': Called when the transformation is complete and is provided the
       final result as a single argument. This function must then return a
       result.
-    * 'step': Called with the current result in the first argument and the new
+    - 'step': Called with the current result in the first argument and the new
       input to process in the second argument. This function is then expected
       to return the new result.
-* ``$coll``: Data to transform. Can be an array, iterator, or PHP stream
+- ``$coll``: Data to transform. Can be an array, iterator, or PHP stream
   resource.
-* ``$init``: Optional first initialization value of the reduction.
+- ``$init``: Optional first initialization value of the reduction.
 
 When using this function, you can use two built-in transformation functions as
 the ``$step`` argument:
 
-* ``Transducers\append()``: Creates a transformer step function that appends
+- ``Transducers\append()``: Creates a transformer step function that appends
   values to an array.
-* ``stream()``: Creates a transformer that writes values to a stream resource.
+- ``stream()``: Creates a transformer that writes values to a stream resource.
   If no ``$init`` value is provided when transducing then a PHP temp stream
   will be used.
 
@@ -372,16 +372,16 @@ Here's how to create a mapping transducer that adds 1 to each value:
 Transformation arrays are PHP associative arrays that contain the following
 key value pairs:
 
-* "init": A function with arity 0. Invoked with no arguments to initialize a
+- "init": A function with arity 0. Invoked with no arguments to initialize a
   transformation. This function should call the 'init' function on the nested
   transformer array ``$xf``, which will eventually call out to the transducing
   process.
-* "step": A function with arity 2. This is a standard reduction function but it
+- "step": A function with arity 2. This is a standard reduction function but it
   is expected to call the ``$xf`` ``step`` function 0 or more times as
   appropriate in the transducer. For example, filter will choose (based on the
   predicate) whether to call ``$xf`` or not. map will always call it exactly
   once. cat may call it many times depending on the inputs.
-* "result": A function with arity 1. Some processes will not end, but for
+- "result": A function with arity 1. Some processes will not end, but for
   those that do (like transduce), the completion arity is used to produce a
   final value and/or flush state. This arity must call the ``$xf`` 'result'
   function exactly once.
