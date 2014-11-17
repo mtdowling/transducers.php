@@ -21,7 +21,7 @@ be applied **eagerly** using ``transduce()`` or ``into()`` and **lazily** using
 
 ::
 
-    composer.phar install mtdowling/transducers
+    composer.phar require mtdowling/transducers
 
 Defining Transformations With Transducers
 -----------------------------------------
