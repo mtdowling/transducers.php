@@ -248,6 +248,12 @@ map()
 
 Applies a map function ``$f`` to each value in a collection.
 
+.. code-block:: php
+
+    $data = ['a', 'b', 'c'];
+    $xf = T\map(function ($value) { return strtoupper($value); });
+    assert(T\into([], $xf, $data) == ['A', 'B', 'C']);
+
 filter()
 ~~~~~~~~
 
@@ -352,12 +358,23 @@ dedupe()
 Removes duplicates that occur in order (keeping the first in a sequence of
 duplicate values).
 
+.. code-block:: php
+
+    $data = ['a', 'b', 'b', 'c', 'c', 'c', 'b'];
+    $result = T\into([], T\dedupe(), $data);
+    assert($result == ['a', 'b', 'c', 'b']);
+
 interpose()
 ~~~~~~~~~~~
 
 ``function interpose($separator)``
 
 Adds a separator between each item in the sequence.
+
+.. code-block:: php
+
+    $result = T\into([], T\interpose('-'), ['a', 'b', 'c']);
+    assert($result == ['a', '-', 'b', '-', 'c']);
 
 tap()
 ~~~~~
@@ -398,5 +415,5 @@ Trim out all falsey values.
 
 .. code-block:: php
 
-    T\into([], T\compact(), ['a', true, false, 'b', 0]);
-    //> Results in: ['a', true, 'b']
+    $result = T\into([], T\compact(), ['a', true, false, 'b', 0]);
+    assert($result = ['a', true, 'b']);

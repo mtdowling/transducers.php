@@ -70,4 +70,26 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         }), $data);
         $this->assertSame($res, $result);
     }
+
+    public function testInterposes()
+    {
+        $data = ['a', 'b', 'c'];
+        $result = T\into([], T\interpose('-'), $data);
+        $this->assertEquals(['a', '-', 'b', '-', 'c'], $result);
+    }
+
+    public function testRemovesDuplicates()
+    {
+        $data = ['a', 'b', 'b', 'c', 'c', 'c', 'b'];
+        $result = T\into([], T\dedupe(), $data);
+        $this->assertEquals(['a', 'b', 'c', 'b'], $result);
+    }
+
+    public function testMaps()
+    {
+        $data = ['a', 'b', 'c'];
+        $xf = T\map(function ($value) { return strtoupper($value); });
+        $result = T\into([], $xf, $data);
+        $this->assertEquals(['A', 'B', 'C'], $result);
+    }
 }
