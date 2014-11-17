@@ -238,6 +238,23 @@ Returns the same data type passed in as ``$coll`` with ``$xf`` applied. When
 into an array. When ``$coll`` is an iterator, ``seq`` will read from ``$coll``
 lazily and create an iterator that applies ``$xf`` to each yielded value.
 
+.. code-block:: php
+
+    // Give an array and get back an array
+    $result = T\seq([1, false, 3], T\compact());
+    assert($result === [1, 3]);
+
+    // Give an iterator and get back an iterator
+    $result = T\seq(new ArrayIterator([1, false, 3]), T\compact());
+    assert($result instanceof \Iterator);
+
+    // Give a stream and get back a stream.
+    $stream = fopen('php://temp', 'w+');
+    fwrite($stream, '012304');
+    rewind($stream);
+    $result = T\seq($stream, T\compact());
+    assert($result == '1234');
+
 Available Transducers
 ---------------------
 
@@ -411,18 +428,13 @@ interceptor with current result and item.
 .. code-block:: php
 
     $data = ['a', 'b', 'c'];
-
     // echo each value as it passes through the tap function.
-    $tap = T\tap(function ($r, $x) {
-        echo $x . ', ';
-    });
-
+    $tap = T\tap(function ($r, $x) { echo $x . ', '; });
     $xf = T\comp(
         $tap,
         T\map(function ($v) { return strtoupper($v); }),
         $tap
     );
-
     T\into([], $xf, $data);
     // Prints: a, A, b, B, c, C,
 

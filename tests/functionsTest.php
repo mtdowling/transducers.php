@@ -54,6 +54,15 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         fclose($res);
     }
 
+    public function testTransformStreamWithSeq()
+    {
+        $stream = fopen('php://temp', 'w+');
+        fwrite($stream, '012304');
+        rewind($stream);
+        $result = T\seq($stream, T\compact());
+        $this->assertEquals('1234', stream_get_contents($result));
+    }
+
     public function testCompactTrimsFalseyValues()
     {
         $data = [0, false, true, 10, ' ', 'a'];

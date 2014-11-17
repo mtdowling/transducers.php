@@ -70,9 +70,14 @@ function append()
 function stream()
 {
     return [
-        'init'   => function () { return fopen('php://temp', 'w+'); },
-        'result' => 'Transducers\identity',
-        'step'   => function ($result, $input) {
+        'init' => function () {
+            return fopen('php://temp', 'w+');
+        },
+        'result' => function ($result) {
+            rewind($result);
+            return $result;
+        },
+        'step' => function ($result, $input) {
             fwrite($result, $input);
             return $result;
         }
@@ -165,7 +170,7 @@ function seq($coll, callable $xf)
     } elseif ($coll instanceof \Iterator) {
         return iter($coll, $xf);
     } elseif (is_resource($coll)) {
-        return iter(stream_iter($coll), $xf);
+        return transduce($xf, stream(), stream_iter($coll));
     }
 
     throw _type_error('seq', $coll);
