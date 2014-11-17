@@ -222,7 +222,7 @@ or when you want operations to occur only as needed.
     );
 
     // T\iter() returns an iterator that applies $xf lazily.
-    $iterator = T\iter($forever(), $transducer);
+    $iterator = T\iter($forever(), $xf);
 
     foreach ($iterator as $value) {
         echo $value;
