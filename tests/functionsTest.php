@@ -60,4 +60,14 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $result = T\into([], T\compact(), $data);
         $this->assertEquals([true, 10, ' ', 'a'], $result);
     }
+
+    public function testTapsIntoReduce()
+    {
+        $data = ['a', 'b', 'c'];
+        $res = [];
+        $result = T\into([], T\tap(function ($r, $x) use (&$res) {
+            $res[] = $x;
+        }), $data);
+        $this->assertSame($res, $result);
+    }
 }

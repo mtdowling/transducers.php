@@ -611,6 +611,32 @@ function compact()
 }
 
 /**
+ * Invokes interceptor with each result and item, and then steps through
+ * unchanged.
+ *
+ * The primary purpose of this method is to "tap into" a method chain, in order
+ * to perform operations on intermediate results within the chain. Executes
+ * interceptor with current result and item.
+ *
+ * @param callable $interceptor
+ *
+ * @return callable
+ */
+function tap(callable $interceptor)
+{
+    return function (array $xf) use ($interceptor) {
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf, $interceptor) {
+                $interceptor($result, $input);
+                return $xf['step']($result, $input);
+            }
+        ];
+    };
+}
+
+/**
  * @param string $name Name of the function that was called.
  * @param mixed  $coll Data that was provided.
  *
