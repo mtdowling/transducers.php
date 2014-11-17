@@ -115,18 +115,12 @@ transduce()
 
 Transform and reduce $coll by applying $xf($step)['step'] to each value.
 
-callable $xf
-    Transducer function to apply.
-
-array $step
-    `Transformer array <Transformer>`_ that has 'init', 'result', and 'step'
-    keys that map to a callable.
-
-$coll
-    Data to transform. Can be an array, iterator, or PHP stream resource.
-
-$init
-    Optional first initialization value of the reduction.
+- ``callable $xf``: Transducer function to apply.
+- ``array $step``: `Transformer array <Transformer>`_ that has 'init',
+  'result', and 'step' keys that map to a callable.
+- ``$coll``: Data to transform. Can be an array, iterator, or PHP stream
+  resource.
+- ``$init``: Optional first initialization value of the reduction.
 
 When using this function, you can use two built-in transformation functions as
 the ``$step`` argument:
