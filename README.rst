@@ -80,27 +80,37 @@ Here's how to create a transducer that adds ``$n`` to each value:
 Transformer Array
 -----------------
 
-Transformer arrays are PHP associative arrays that contain the following
-key value pairs:
+Transformer arrays are PHP associative arrays that contain a 'init', 'step',
+and 'result' key that maps to a function.
 
-"init"
-    A function with arity 0. Invoked to initialize a transducer. This function
-    should call the 'init' function on the nested transformer array ``$xf``,
-    which will eventually call out to the transducing process. This function
-    is only called when an initial value is not provided while transducing.
-
-"step"
-    A function with arity 2. This is a standard reduction function but it
-    is expected to call the ``$xf['step']`` function 0 or more times as
-    appropriate in the transducer. For example, ``filter`` will choose (based
-    on the predicate) whether to call ``$xf`` or not. ``map`` will always call
-    it exactly once. ``cat`` may call it many times depending on the inputs.
-
-"result"
-    A function with arity 1. Some processes will not end, but for those that do
-    (like transduce), the 'result' function is used to produce a final value
-    and/or flush state. This function must call the ``$xf['result']`` function
-    exactly once.
++--------+-------------------------+------------------------------------------+
+|   key  |        arguments        |                  Description             |
++========+=========================+==========================================+
+|  init  |           none          | Invoked to initialize a transducer. This |
+|        |                         | function should call the 'init' function |
+|        |                         | on the nested transformer array ``$xf``, |
+|        |                         | which will eventually call out to the    |
+|        |                         | transducing process. This function is    |
+|        |                         | only called when an initial value is not |
+|        |                         | provided while transducing.              |
++--------+-------------------------+------------------------------------------+
+|  step  | ``$result``, ``$input`` | This is a standard reduction function    |
+|        |                         | but it is expected to call the           |
+|        |                         | ``$xf['step']`` function 0 or more       |
+|        |                         | times as appropriate in the transducer.  |
+|        |                         | For example, ``filter`` will choose      |
+|        |                         | (based on the predicate) whether to call |
+|        |                         | ``$xf`` or not. ``map`` will always call |
+|        |                         | it exactly once. ``cat`` may call it     |
+|        |                         | many times depending on the inputs.      |
++--------+-------------------------+------------------------------------------+
+| result |       ``$result``       | Some processes will not end, but for     |
+|        |                         | those that do (like transduce), the      |
+|        |                         | 'result' function is used to produce     |
+|        |                         | a final value and/or flush state. This   |
+|        |                         | function must call the ``$xf['result']`` |
+|        |                         | function exactly once.                   |
++--------+-------------------------+------------------------------------------+
 
 Using Transducers
 -----------------
