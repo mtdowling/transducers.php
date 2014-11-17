@@ -53,4 +53,11 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $this->assertSame($res, $xf['result']($res));
         fclose($res);
     }
+
+    public function testCompactTrimsFalseyValues()
+    {
+        $data = [0, false, true, 10, ' ', 'a'];
+        $result = T\into([], T\compact(), $data);
+        $this->assertEquals([true, 10, ' ', 'a'], $result);
+    }
 }

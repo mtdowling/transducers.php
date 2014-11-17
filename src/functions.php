@@ -593,6 +593,24 @@ function interpose($separator)
 }
 
 /**
+ * Trim out all falsey values.
+ *
+ * @return callable
+ */
+function compact()
+{
+    return function (array $xf) {
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf) {
+                return $input ? $xf['step']($result, $input) : $result;
+            }
+        ];
+    };
+}
+
+/**
  * @param string $name Name of the function that was called.
  * @param mixed  $coll Data that was provided.
  *
