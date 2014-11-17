@@ -28,12 +28,14 @@ Defining Transformations With Transducers
 
 Transducers compose with ordinary function composition. A transducer performs
 its operation before deciding whether and how many times to call the transducer
-it wraps. The recommended way to compose transducers is with the
-``Transducers\comp()`` function:
+it wraps. You can easily compose transducers to create transducer pipelines.
+The recommended way to compose transducers is with the ``Transducers\comp()``
+function:
 
 .. code-block:: php
 
     use Transducers as T;
+
     $xf = T\comp(T\drop(2), T\take(5));
 
 The above composed transducer skips the first two elements of a collection then
@@ -57,23 +59,32 @@ transduce()
 
 .. code-block:: php
 
-    function transduce(callable $xf, callable $step, $coll, $init = null)
+    function transduce(callable $xf, array $step, $coll, $init = null)
 
 Reduce with a transformation of f (xf).
 
 * ``$xf``: Transducer to apply.
-* ``$step``: Reducing step function to invoke.
+* ``$step``: Transformation array that has the following keys:
+    * 'init': Called with no argument and creates an initial value. This is only
+      called if ``$init`` in ``null``.
+    * 'result': Called when the transformation is complete and is provided the
+      final result as a single argument. This function must then return a
+      result.
+    * 'step': Called with the current result in the first argument and the new
+      input to process in the second argument. This function is then expected
+      to return the new result.
 * ``$coll``: Data to transform. Can be an array, iterator, or PHP stream
   resource.
 * ``$init``: Optional first initialization value of the reduction.
 
-When using this function, you can use two built-in reducing step functions:
+When using this function, you can use two built-in transformation functions as
+the ``$step`` argument:
 
-* ``Transducers\append()``: Creates a transducer step function that appends
+* ``Transducers\append()``: Creates a transformer step function that appends
   values to an array.
-* ``stream()``: Creates a transducer step function that writes values to a
-  stream resource. If no ``$init`` value is provided when transducing then
-  a PHP temp stream will be used.
+* ``stream()``: Creates a transformer that writes values to a stream resource.
+  If no ``$init`` value is provided when transducing then a PHP temp stream
+  will be used.
 
 .. code-block:: php
 
@@ -333,50 +344,44 @@ Adds a separator between each item in the sequence.
 Creating Transducers
 --------------------
 
-Transducers are functions that accept a transformation function ``$xf`` and
-return a new function that uses the provided ``$xf`` function and behaves
-differently based on arity (number of arguments).
+Transducers are functions that return transformation arrays. The returned
+transformation array accepts a
 
-The recommended way to create a transducer is to use the ``create()`` function.
+Transducers are functions that return a function that accept a transformation
+array ``$xf`` and return a new transformation array that uses the provided
+``$xf`` transformation array.
+
 Here's how to create a mapping transducer that adds 1 to each value:
 
 .. code-block:: php
 
-    $f = function ($value) {
-        return $value + 1;
-    }
-
-    $inc = function (callable $step) use ($f) {
-        return T\create(
-            // Call the step function with the provided arguments.
-            $step,
-            // Reduce function that calls the step function.
-            function ($result, $input) use ($step, $f) {
-                return $step($result, $f($input));
-            },
-            // Call the step function with the provided arguments.
-            $step
-        );
+    function inc() {
+        return function (array $xf) {
+            return [
+                'init'   => $xf['init'],
+                'result' => $xf['result'],
+                'step'   => function ($result, $input) use ($xf) {
+                    return $xf['step']($result, $input + 1);
+                }
+            ];
+        }
     };
 
     $result = T\into([], $inc, [1, 2, 3]); // Contains: 2, 3, 4
 
-The ``create`` function has the following signature:
+Transformation arrays are PHP associative arrays that contain the following
+key value pairs:
 
-.. code-block:: php
-
-    function create(callable $init, callable $step, callable $complete)
-
-* ``callable $init`` (arity 0): Function invoked with no arguments to
-  initialize a transducer. Should call the init arity on the nested transform
-  ``$xf``, which will eventually call out to the transducing process.
-* ``callable $step`` (arity 2): Function called with two arguments. This is a
-  standard reduction function but it is expected to call the ``$xf`` step arity
-  0 or more times as appropriate in the transducer. For example, filter will
-  choose (based on the predicate) whether to call ``$xf`` or not. map will
-  always call it exactly once. cat may call it many times depending on the
-  inputs.
-* ``callable $complete`` (arity 1): Function called with a single argument.
-  Some processes will not end, but for those that do (like transduce), the
-  completion arity is used to produce a final value and/or flush state. This
-  arity must call the ``$xf`` completion arity exactly once.
+* "init": A function with arity 0. Invoked with no arguments to initialize a
+  transformation. This function should call the 'init' function on the nested
+  transformer array ``$xf``, which will eventually call out to the transducing
+  process.
+* "step": A function with arity 2. This is a standard reduction function but it
+  is expected to call the ``$xf`` ``step`` function 0 or more times as
+  appropriate in the transducer. For example, filter will choose (based on the
+  predicate) whether to call ``$xf`` or not. map will always call it exactly
+  once. cat may call it many times depending on the inputs.
+* "result": A function with arity 1. Some processes will not end, but for
+  those that do (like transduce), the completion arity is used to produce a
+  final value and/or flush state. This arity must call the ``$xf`` 'result'
+  function exactly once.

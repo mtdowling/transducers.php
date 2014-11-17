@@ -46,63 +46,39 @@ function identity($value)
 }
 
 /**
- * Creates a transducer function.
+ * Creates a transformer that appends values to an array.
  *
- * @param callable $init     Initialization function.
- * @param callable $step     Step function (accepts $result, $input)
- * @param callable $complete Complete function that accepts a single value.
- *
- * @return callable
- * @throws \InvalidArgumentException
- */
-function create(callable $init, callable $step, callable $complete)
-{
-    return function ($result = null, $input = null) use ($init, $step, $complete) {
-        switch (func_num_args()) {
-            case 2: return $step($result, $input);
-            case 0: return $init();
-            case 1: return $complete($result);
-            default: throw new \InvalidArgumentException('Invalid arity');
-        }
-    };
-}
-
-/**
- * Creates a transducer that appends values to an array.
- *
- * @return callable
+ * @return array Returns a transformer array.
  */
 function append()
 {
-    return create(
-        function () {
-            return [];
-        },
-        function ($r, $x) {
-            $r[] = $x;
-            return $r;
-        },
-        'Transducers\identity'
-    );
+    return [
+        'init'   => function () { return  []; },
+        'result' => 'Transducers\identity',
+        'step'   => function ($result, $input) {
+            $result[] = $input;
+            return $result;
+        }
+    ];
 }
 
 /**
  * Creates a transducer that writes to a stream resource.
  *
- * @return callable
+ * @return array Returns a transformer array.
  */
 function stream()
 {
-    return create(
-        function () {
+    return [
+        'init' => function () {
             return fopen('php://temp', 'w+');
         },
-        function ($r, $x) {
-            fwrite($r, $x);
-            return $r;
-        },
-        'Transducers\identity'
-    );
+        'result' => 'Transducers\identity',
+        'step' => function ($result, $input) {
+            fwrite($result, $input);
+            return $result;
+        }
+    ];
 }
 
 /**
@@ -165,62 +141,46 @@ function seq($coll, callable $xf)
  * Reduces the given iterable using the provided reduce function $fn. The
  * reduction is short-circuited if $fn returns an instance of Reduced.
  *
- * @param callable                     $fn          Reduce function.
- * @param array|\Traversable|\Iterator $coll        Data to transform.
- * @param mixed                        $initializer Initial reduction value.
+ * @param callable $fn    Reduce function.
+ * @param mixed    $coll  Iterable data to transform.
+ * @param mixed    $accum Initial accumulated value.
  * @return mixed Returns the reduced value
  */
-function reduce(callable $fn, $coll, $initializer = null)
+function reduce(callable $fn, $coll, $accum = null)
 {
-    if (!is_array($coll) && !($coll instanceof \Traversable)) {
-        throw _type_error('reduce', $coll);
-    }
-
-    $result = $initializer;
     foreach ($coll as $input) {
-        $result = $fn($result, $input);
-        if ($result instanceof Reduced) {
-            return $result->value;
+        $accum = $fn($accum, $input);
+        if ($accum instanceof Reduced) {
+            return $accum->value;
         }
     }
 
-    return $result;
+    return $accum;
 }
 
 /**
- * Reduce with a transformation of f (xf).
+ * Transform and reduce $coll by applying $xf and $step to each value.
  *
- * $f should be a function that has three different behaviors based on the
- * arity of calling $f. If an initial value is not provided, $f will be called
- * with no arguments to create the initial value. When called with two
- * arguments, $f should be a reducing step function that accepts the previous
- * value and next item and returns the next item. Finally, when the transform
- * is complete, $f is called once more with the completed value and must return
- * the completed value.
- *
- * Returns the result of applying the transformed $xf to init and the first
+ * Returns the result of applying the transformed $xf to 'init' and the first
  * item in the $coll, then applying $xf to that result and the second item,
  * etc. If $coll contains no items, returns init and $f is not called.
  *
- * @param callable $xf   Transformation function
- * @param callable $step Reducing step function. This function has three
- *                       arities: 0 -> returns an initial value, 2 -> accepts a
- *                       result over result and new value and returns a new
- *                       value, 1 -> accepts the completed results and returns
- *                       a completed result.
- * @param mixed    $coll The iterable collection to transduce.
+ * @param callable $xf   Transducer function.
+ * @param array    $step Transformation array that contains an 'init', 'result',
+ *                       and 'step' keys mapping to functions.
+ * @param mixed    $coll The iterable collection to transform.
  * @param mixed    $init The first initialization value of the reduction.
  *
  * @return mixed
  */
-function transduce(callable $xf, callable $step, $coll, $init = null)
+function transduce(callable $xf, array $step, $coll, $init = null)
 {
     if ($init === null) {
-        $init = $step();
+        $init = $step['init']();
     }
 
     $reducer = $xf($step);
-    $result = $reducer(reduce($reducer, $coll, $init));
+    $result = $reducer['result'](reduce($reducer['step'], $coll, $init));
 
     return $result instanceof Reduced ? $result->value : $result;
 }
@@ -234,14 +194,14 @@ function transduce(callable $xf, callable $step, $coll, $init = null)
  */
 function map(callable $f)
 {
-    return function (callable $step) use ($f) {
-        return create(
-            $step,
-            function ($result, $input) use ($step, $f) {
-                return $step($result, $f($input));
-            },
-            $step
-        );
+    return function (array $xf) use ($f) {
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf, $f) {
+                return $xf['step']($result, $f($input));
+            }
+        ];
     };
 }
 
@@ -254,14 +214,16 @@ function map(callable $f)
  */
 function filter(callable $pred)
 {
-    return function (callable $step) use ($pred) {
-        return create(
-            $step,
-            function ($result, $input) use ($pred, $step) {
-                return $pred($input) ? $step($result, $input) : $result;
+    return function (array $xf) use ($pred) {
+        return [
+            'init' => $xf['init'],
+            'result' => $xf['result'],
+            'step' => function ($result, $input) use ($pred, $xf) {
+                return $pred($input)
+                    ? $xf['step']($result, $input)
+                    : $result;
             },
-            $step
-        );
+        ];
     };
 }
 
@@ -274,14 +236,16 @@ function filter(callable $pred)
  */
 function remove(callable $pred)
 {
-    return function (callable $step) use ($pred) {
-        return create(
-            $step,
-            function ($result, $input) use ($pred, $step) {
-                return !$pred($input) ? $step($result, $input) : $result;
-            },
-            $step
-        );
+    return function (array $xf) use ($pred) {
+        return [
+            'init' => $xf['init'],
+            'result' => $xf['result'],
+            'step' => function ($result, $input) use ($pred, $xf) {
+                return !$pred($input)
+                    ? $xf['step']($result, $input)
+                    : $result;
+            }
+        ];
     };
 }
 
@@ -292,17 +256,17 @@ function remove(callable $pred)
  */
 function cat()
 {
-    return function (callable $step) {
-        return create(
-            $step,
-            function ($result, $input) use ($step) {
+    return function (array $xf) {
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf) {
                 foreach ((array) $input as $value) {
-                    $result = $step($result, $value);
+                    $result = $xf['step']($result, $value);
                 }
                 return $result;
-            },
-            $step
-        );
+            }
+        ];
     };
 }
 
@@ -328,23 +292,23 @@ function mapcat(callable $f)
  */
 function chunk($size)
 {
-    return function (callable $step) use ($size) {
+    return function (array $xf) use ($size) {
         $buffer = [];
-        return create(
-            $step,
-            function ($result, $input) use ($step, &$buffer, $size) {
+        return [
+            'init' => $xf['init'],
+            'result' => function ($result) use (&$buffer, $xf) {
+                return $buffer ? $xf['step']($result, $buffer) : $result;
+            },
+            'step' => function ($result, $input) use ($xf, &$buffer, $size) {
                 $buffer[] = $input;
                 if (count($buffer) == $size) {
-                    $result = $step($result, $buffer);
+                    $result = $xf['step']($result, $buffer);
                     $buffer = [];
                     return $result;
                 }
                 return $result;
-            },
-            function ($result) use (&$buffer, $step) {
-                return $buffer ? $step($result, $buffer) : $result;
             }
-        );
+        ];
     };
 }
 
@@ -357,18 +321,18 @@ function chunk($size)
  */
 function take($n)
 {
-    return function (callable $step) use ($n) {
+    return function (array $xf) use ($n) {
         $remaining = $n;
-        return create(
-            $step,
-            $n <= 0
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => $n <= 0
                 ? 'Transducers\identity'
-                : function ($result, $input) use (&$remaining, $step) {
-                    $result = $step($result, $input);
+                : function ($result, $input) use (&$remaining, $xf) {
+                    $result = $xf['step']($result, $input);
                     return --$remaining ? $result : ensure_reduced($result);
-                },
-            $step
-        );
+                }
+        ];
     };
 }
 
@@ -381,16 +345,16 @@ function take($n)
  */
 function take_while(callable $pred)
 {
-    return function (callable $step) use ($pred) {
-        return create(
-            $step,
-            function ($result, $input) use ($pred, $step) {
+    return function (array $xf) use ($pred) {
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($pred, $xf) {
                 return $pred($input)
-                    ? $step($result, $input)
+                    ? $xf['step']($result, $input)
                     : ensure_reduced($result);
-            },
-            $step
-        );
+            }
+        ];
     };
 }
 
@@ -403,15 +367,17 @@ function take_while(callable $pred)
  */
 function take_nth($nth)
 {
-    return function (callable $step) use ($nth) {
+    return function (array $xf) use ($nth) {
         $i = 0;
-        return create(
-            $step,
-            function ($result, $input) use ($step, &$i, $nth) {
-                return $i++ % $nth ? $result : $step($result, $input);
-            },
-            $step
-        );
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf, &$i, $nth) {
+                return $i++ % $nth
+                    ? $result
+                    : $xf['step']($result, $input);
+            }
+        ];
     };
 }
 
@@ -424,15 +390,17 @@ function take_nth($nth)
  */
 function drop($n)
 {
-    return function (callable $step) use ($n) {
+    return function (array $xf) use ($n) {
         $remaining = $n;
-        return create(
-            $step,
-            function ($result, $input) use ($step, &$remaining) {
-                return $remaining-- > 0 ? $result : $step($result, $input);
-            },
-            $step
-        );
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf, &$remaining) {
+                return $remaining-- > 0
+                    ? $result
+                    : $xf['step']($result, $input);
+            }
+        ];
     };
 }
 
@@ -446,24 +414,24 @@ function drop($n)
  */
 function drop_while(callable $pred)
 {
-    return function (callable $step) use ($pred) {
+    return function (array $xf) use ($pred) {
         $trigger = false;
-        return create(
-            $step,
-            function ($result, $input) use ($step, $pred, &$trigger) {
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf, $pred, &$trigger) {
                 if ($trigger) {
                     // No longer dropping.
-                    return $step($result, $input);
+                    return $xf['step']($result, $input);
                 } elseif (!$pred($input)) {
                     // Predicate failed so stop dropping.
                     $trigger = true;
-                    return $step($result, $input);
+                    return $xf['step']($result, $input);
                 }
                 // Currently dropping
                 return $result;
-            },
-            $step
-        );
+            }
+        ];
     };
 }
 
@@ -478,16 +446,16 @@ function drop_while(callable $pred)
  */
 function replace(array $smap)
 {
-    return function ($step) use ($smap) {
-        return create(
-            $step,
-            function ($result, $input) use ($step, $smap) {
+    return function (array $xf) use ($smap) {
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf, $smap) {
                 return isset($smap[$input])
-                    ? $step($result, $smap[$input])
-                    : $step($result, $input);
-            },
-            $step
-        );
+                    ? $xf['step']($result, $smap[$input])
+                    : $xf['step']($result, $input);
+            }
+        ];
     };
 }
 
@@ -500,15 +468,17 @@ function replace(array $smap)
  */
 function keep(callable $f)
 {
-    return function ($step) use ($f) {
-        return create(
-            $step,
-            function ($result, $input) use ($step, $f) {
+    return function (array $xf) use ($f) {
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf, $f) {
                 $value = $f($input);
-                return $value === null ? $step($result, $value) : $result;
-            },
-            $step
-        );
+                return $value === null
+                    ? $xf['step']($result, $value)
+                    : $result;
+            }
+        ];
     };
 }
 
@@ -521,16 +491,18 @@ function keep(callable $f)
  */
 function keep_indexed(callable $f)
 {
-    return function ($step) use ($f) {
+    return function (array $xf) use ($f) {
         $idx = 0;
-        return create(
-            $step,
-            function ($result, $input) use ($step, $f, &$idx) {
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf, $f, &$idx) {
                 $value = $f($idx++, $input);
-                return $value === null ? $step($result, $value) : $result;
-            },
-            $step
-        );
+                return $value === null
+                    ? $xf['step']($result, $value)
+                    : $result;
+            }
+        ];
     };
 }
 
@@ -542,21 +514,21 @@ function keep_indexed(callable $f)
  */
 function dedupe()
 {
-    return function (callable $step) {
+    return function (array $xf) {
         $outer = [];
-        return create(
-            $step,
-            function ($result, $input) use ($step, &$outer) {
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf, &$outer) {
                 if (!array_key_exists('prev', $outer)
                     || $outer['prev'] !== $input
                 ) {
                     $outer['prev'] = $input;
-                    return $step($result, $input);
+                    return $xf['step']($result, $input);
                 }
                 return $result;
-            },
-            $step
-        );
+            }
+        ];
     };
 }
 
@@ -569,20 +541,20 @@ function dedupe()
  */
 function interpose($separator)
 {
-    return function (callable $step) use ($separator) {
+    return function (array $xf) use ($separator) {
         $triggered = 0;
-        return create(
-            $step,
-            function ($result, $input) use ($step, $separator, &$triggered) {
+        return [
+            'init' => $xf['init'],
+            'result' => $xf['result'],
+            'step' => function ($result, $input)
+                use ($xf, $separator, &$triggered) {
                 if (!$triggered) {
                     $triggered = true;
-                    return $step($result, $input);
-                } else {
-                    return $step($step($result, $separator), $input);
+                    return $xf['step']($result, $input);
                 }
-            },
-            $step
-        );
+                return $xf['step']($xf['step']($result, $separator), $input);
+            }
+        ];
     };
 }
 

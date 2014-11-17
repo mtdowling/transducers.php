@@ -6,7 +6,6 @@ namespace Transducers;
  */
 class LazyTransformer implements \Iterator
 {
-    /** @var callable */
     private $stepper;
     private $idx = 0;
     private $item;
@@ -20,14 +19,14 @@ class LazyTransformer implements \Iterator
     public function __construct(\Iterator $input, callable $xf)
     {
         $this->input = $input;
-        $this->stepper = $xf(create(
-            'Transducers\identity',
-            function ($result, $input) {
+        $this->stepper = $xf([
+            'init'   => 'Transducers\identity',
+            'result' => 'Transducers\identity',
+            'step'   => function ($result, $input) {
                 $this->items[] = $input;
                 return $result;
-            },
-            'Transducers\identity'
-        ));
+            }
+        ]);
     }
 
     public function rewind()
@@ -47,8 +46,7 @@ class LazyTransformer implements \Iterator
             $this->idx++;
             $this->item = array_shift($this->items);
         } elseif ($this->input->valid()) {
-            $stepper = $this->stepper;
-            $this->prev = $stepper($this->prev, $this->input->current());
+            $this->prev = $this->stepper['step']($this->prev, $this->input->current());
             $this->input->next();
             $this->next();
         }
