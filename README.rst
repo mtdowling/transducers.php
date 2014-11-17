@@ -55,25 +55,25 @@ Transducers are functions that return a function that accept a
 `transformer array <Transformer>`_ ``$xf`` and return a new transformer array
 that wraps the provided ``$xf`` transformer array.
 
-Here's how to create a transducer that adds 1 to each value:
+Here's how to create a transducer that adds ``$n`` to each value:
 
 .. code-block:: php
 
-    function inc() {
+    function inc($n = 1) {
         // Return a function that accepts a transformer array $xf.
-        return function (array $xf) {
+        return function (array $xf) use ($n) {
             // Return a new transformer array that wraps $xf.
             return [
                 'init'   => $xf['init'],
                 'result' => $xf['result'],
-                'step'   => function ($result, $input) use ($xf) {
-                    return $xf['step']($result, $input + 1);
+                'step'   => function ($result, $input) use ($xf, $n) {
+                    return $xf['step']($result, $input + $n);
                 }
             ];
         }
     };
 
-    $result = T\into([], $inc, [1, 2, 3]); // Contains: 2, 3, 4
+    $result = T\into([], $inc(1), [1, 2, 3]); // Contains: 2, 3, 4
 
 .. _Transformer:
 
