@@ -16,8 +16,9 @@ and this `video <https://www.youtube.com/watch?v=6mTbuzafcII>`_.
 
 You can transduce anything that you can iterate over in a foreach-loop (e.g.,
 arrays, ``\Iterator``, ``Traversable``, ``Generator``, etc.). Transducers can
-be applied **eagerly** using ``transduce()`` or ``into()`` and **lazily** using
-``xfiter()`` or ``seq()``.
+be applied **eagerly** using ``transduce()``, ``into()``, ``to_array()``,
+``to_assoc()``, ``to_string()``; and **lazily** using ``to_iter()`` or
+``seq()``.
 
 ::
 
