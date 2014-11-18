@@ -307,6 +307,48 @@ function partition($size)
 }
 
 /**
+ * Split inputs into lists by starting a new list each time the predicate
+ * passed in evaluates to a different condition (true/false) than what holds
+ * for the present list.
+ *
+ * @param callable $pred Function that returns a new value to partition by.
+ *
+ * @return callable
+ */
+function partition_by(callable $pred)
+{
+    return function (array $xf) use ($pred) {
+        $ctx = [];
+        return [
+            'init' => $xf['init'],
+            'result' => function ($result) use (&$ctx, $xf) {
+                // Add any pending elements.
+                return empty($ctx['buffer'])
+                    ? $result
+                    : $xf['step']($result, $ctx['buffer']);
+            },
+            'step' => function ($result, $input) use ($xf, &$ctx, $pred) {
+                $test = $pred($input);
+                if (!$ctx) {
+                    $ctx['last'] = $test;
+                    $ctx['buffer'] = [$input];
+                } elseif ($ctx['last'] !== $test) {
+                    $ctx['last'] = $test;
+                    if (!empty($ctx['buffer'])) {
+                        $buffer = $ctx['buffer'];
+                        $ctx['buffer'] = [$input];
+                        return $xf['step']($result, $buffer);
+                    }
+                } else {
+                    $ctx['buffer'][] = $input;
+                }
+                return $result;
+            }
+        ];
+    };
+}
+
+/**
  * Takes $n number of values from a collection.
  *
  * @param int $n Number of value to take

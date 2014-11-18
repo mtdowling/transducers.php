@@ -423,6 +423,27 @@ completes, the array will be stepped with any remaining items.
     $result = t\seq($data, t\partition(2));
     assert($result == [[1, 2], [3, 4], [5]]);
 
+partition_by()
+~~~~~~~~~~~~~~
+
+``function partition_by(callable $pred)``
+
+Split inputs into lists by starting a new list each time the predicate passed
+in evaluates to a different condition (true/false) than what holds for the
+present list.
+
+.. code-block:: php
+
+    $data = [['a', 1], ['a', 2], [2, 3], ['c', 4]];
+    $xf = t\partition_by(function ($v) { return is_string($v[0]); });
+    $result = t\into([], $xf, $data);
+
+    assert($result == [
+        [['a', 1], ['a', 2]],
+        [[2, 3]],
+        [['c', 4]]
+    ]);
+
 take()
 ~~~~~~
 

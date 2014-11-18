@@ -142,6 +142,17 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($result, [[1, 2], [3, 4], [5]]);
     }
 
+    public function testPartitionsByPredicate()
+    {
+        $data = [['a', 1], ['a', 2], [2, 3], ['c', 4]];
+        $xf = t\partition_by(function ($v) { return is_string($v[0]); });
+        $result = t\into([], $xf, $data);
+        $this->assertEquals(
+            $result,
+            [[['a', 1], ['a', 2]], [[2, 3]], [['c', 4]]]
+        );
+    }
+
     public function testTakes()
     {
         $data = [1, 2, 3, 4, 5];
