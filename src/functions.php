@@ -141,7 +141,8 @@ function xfiter($coll, callable $xf)
         }
     ]);
 
-    $result = null;
+    $result = $reducer['init']();
+
     foreach ($coll as $input) {
         $result = $reducer['step']($result, $input);
         // Yield each queued value from the step function.
@@ -155,7 +156,7 @@ function xfiter($coll, callable $xf)
     }
 
     // Allow reducers to step on the final result.
-    $reducer['step']($result);
+    $reducer['result']($result);
 
     while ($items) {
         yield array_shift($items);
@@ -331,9 +332,9 @@ function filter(callable $pred)
 {
     return function (array $xf) use ($pred) {
         return [
-            'init' => $xf['init'],
+            'init'   => $xf['init'],
             'result' => $xf['result'],
-            'step' => function ($result, $input) use ($pred, $xf) {
+            'step'   => function ($result, $input) use ($pred, $xf) {
                 return $pred($input)
                     ? $xf['step']($result, $input)
                     : $result;
@@ -353,9 +354,9 @@ function remove(callable $pred)
 {
     return function (array $xf) use ($pred) {
         return [
-            'init' => $xf['init'],
+            'init'   => $xf['init'],
             'result' => $xf['result'],
-            'step' => function ($result, $input) use ($pred, $xf) {
+            'step'   => function ($result, $input) use ($pred, $xf) {
                 return !$pred($input)
                     ? $xf['step']($result, $input)
                     : $result;
@@ -442,7 +443,7 @@ function take($n)
             'init'   => $xf['init'],
             'result' => $xf['result'],
             'step'   => $n <= 0
-                ? 'Transducers\identity'
+                ? $xf['step']
                 : function ($result, $input) use (&$remaining, $xf) {
                     $result = $xf['step']($result, $input);
                     return --$remaining ? $result : ensure_reduced($result);
