@@ -637,14 +637,14 @@ function tap(callable $interceptor)
 }
 
 //-----------------------------------------------------------------------------
-// Reducers
+// Reducing function arrays
 //-----------------------------------------------------------------------------
 
 /**
- * Creates an array reducer that appends values to an array or object that
- * implements {@see ArrayAccess}.
+ * Creates a reducing function array that appends values to an array or object
+ * that implements {@see ArrayAccess}.
  *
- * @return array Returns a transform step array.
+ * @return array Returns a reducing function array.
  */
 function array_reducer()
 {
@@ -659,11 +659,13 @@ function array_reducer()
 }
 
 /**
- * Creates a hash map reducer that merges values into an associative array.
+ * Creates a hash map reducing function array that merges values into an
+ * associative array.
+ *
  * This reducer assumes that the provided value is an array where the key is
  * in the first index and the value is in the second index.
  *
- * @return array Returns a transform step array.
+ * @return array Returns a reducing function array.
  */
 function assoc_reducer()
 {
@@ -678,9 +680,9 @@ function assoc_reducer()
 }
 
 /**
- * Creates a stream reducer for PHP stream resources.
+ * Creates a stream reducing function array for PHP stream resources.
  *
- * @return array Returns a transform step array.
+ * @return array Returns a reducing function array.
  */
 function stream_reducer()
 {
@@ -695,11 +697,12 @@ function stream_reducer()
 }
 
 /**
- * Creates a string reducer that concatenates values into a string.
+ * Creates a string reducing function array that concatenates values into a
+ * string.
  *
  * @param string $joiner Optional string to concatenate between each value.
  *
- * @return array Returns a transform step array.
+ * @return array Returns a reducing function array.
  */
 function string_reducer($joiner = '')
 {
@@ -709,6 +712,27 @@ function string_reducer($joiner = '')
         'step'   => function ($r, $x) use ($joiner) {
             return $r . $joiner . $x;
         }
+    ];
+}
+
+/**
+ * Convenience function for creating a reducing function array.
+ *
+ * @param callable $step   Step function that accepts $accum, $input and
+ *                         returns a new reduced value.
+ * @param callable $init   Optional init function invoked with no argument to
+ *                         initialize the reducing function.
+ * @param callable $result Optional result function invoked with a single
+ *                         argument that is expected to return a result.
+ *
+ * @return array Returns a reducing function array.
+ */
+function create_reducer(callable $step, callable $init = null, callable $result = null)
+{
+    return [
+        'init'   => $init ?: function () {},
+        'result' => $result ?: 'Transducers\identity',
+        'step'   => $step
     ];
 }
 

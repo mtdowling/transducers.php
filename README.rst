@@ -39,33 +39,39 @@ function:
 
     $xf = t\comp(
         t\drop(2),
-        t\take(5)
+        t\map(function ($x) { return $x + 1; },
+        t\filter(function ($x) { return $x % 2; },
+        t\take(3)
     );
 
-The above composed transducer skips the first two elements of a collection then
-takes 5 elements from the collection. This new transformation function can
-be used with various transducer application functions, including ``seq()``.
+The above composed transducer is a function that creates a pipeline for
+transforming data: it skips the first two elements of a collection,
+adds 1 to each value, filters out even numbers, then takes 3 elements from the
+collection. This new transformation function can be used with various
+transducer application functions, including ``seq()``.
 
 .. code-block:: php
 
-    t\seq([1, 2, 3, 4, 5, 6, 7, 8], $xf);
-    // Returns: [3, 4, 5, 6, 7]
+    $data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    $result = t\seq($data, $xf);
+
+    // Contains: [5, 7, 9]
 
 Transducers
 -----------
 
-Transducers are functions that return a function that accept a transformer
-array ``$xf`` and return a new transformer array that wraps the provided
-``$xf`` transformer array.
+Transducers are functions that return a function that accept a reducing
+function array ``$xf`` and return a new reducing function array that wraps the
+provided ``$xf``.
 
 Here's how to create a transducer that adds ``$n`` to each value:
 
 .. code-block:: php
 
     function inc($n = 1) {
-        // Return a function that accepts a transformer array $xf.
+        // Return a function that accepts a reducing function array $xf.
         return function (array $xf) use ($n) {
-            // Return a new transformer array that wraps $xf.
+            // Return a new reducing function array that wraps $xf.
             return [
                 'init'   => $xf['init'],
                 'result' => $xf['result'],
@@ -79,24 +85,24 @@ Here's how to create a transducer that adds ``$n`` to each value:
     $result = t\seq([1, 2, 3], $inc(1));
     // Contains: 2, 3, 4
 
-.. _transformer-link:
+.. _reducing-link:
 
-Transformer Array
------------------
+Reducing Function Array
+-----------------------
 
-Transformer arrays are PHP associative arrays that contain a 'init', 'step',
-and 'result' key that maps to a function.
+Reducing function arrays are PHP associative arrays that contain a 'init',
+'step', and 'result' key that maps to a function.
 
 +--------+-------------------------+------------------------------------------+
 |   key  |        arguments        |                  Description             |
 +========+=========================+==========================================+
 |  init  |           none          | Invoked to initialize a transducer. This |
 |        |                         | function should call the 'init' function |
-|        |                         | on the nested transformer array ``$xf``, |
-|        |                         | which will eventually call out to the    |
-|        |                         | transducing process. This function is    |
-|        |                         | only called when an initial value is not |
-|        |                         | provided while transducing.              |
+|        |                         | on the nested reducing function array    |
+|        |                         |  ``$xf``, which will eventually call out |
+|        |                         | to the transducing process. This function|
+|        |                         | is only called when an initial value is  |
+|        |                         | not provided while transducing.          |
 +--------+-------------------------+------------------------------------------+
 |  step  | ``$result``, ``$input`` | This is a standard reduction function    |
 |        |                         | but it is expected to call the           |
@@ -138,19 +144,27 @@ Transform and reduce $coll by applying $xf($step)['step'] to each value.
   value is not provided, the ``$step['init']()`` function will be called to
   provide a default value.
 
-When using this function, you can use any of the built-in transform arrays as
-the ``$step`` argument:
+When using this function, you can use any of the built-in reducing function
+arrays as the ``$step`` argument:
 
-- ``Transducers\array_reducer()``: Creates a transform array that appends
-  values to an array.
-- ``Transducers\stream_reducer()``: Creates a transform array that writes
-  values to a stream resource. If no ``$init`` value is provided when
+- ``Transducers\array_reducer()``: Creates a reducing function array that
+  appends values to an array.
+- ``Transducers\stream_reducer()``: Creates a reducing function array that
+  writes values to a stream resource. If no ``$init`` value is provided when
   transducing then a PHP temp stream will be used.
-- ``Transducers\string_reducer()``: Creates a transform array that concatenates
-  each value to a string.
-- ``Transducers\assoc_reducer()``: Creates a transform array that adds key value
-  pairs to an associative array. Each value must be an array that contains the
-  array key in the first element and the array value in the second element.
+- ``Transducers\string_reducer()``: Creates a reducing function array that
+  concatenates each value to a string.
+- ``Transducers\assoc_reducer()``: Creates a reducing function array that adds
+  key value pairs to an associative array. Each value must be an array that
+  contains the array key in the first element and the array value in the second
+  element.
+- ``Transducers\create_reducer()``: Convenience function that can be used to
+  quickly create reducing function arrays. The first and only required argument
+  is a step function that takes the accumulated result and the new value and
+  returns a single result. The next, optional, argument is the init function
+  that takes no arguments an returns an initialized result. The next, optional,
+  argument is the result function which takes a single result argument and is
+  expected to return a final result.
 
 .. code-block:: php
 
@@ -414,8 +428,8 @@ partition()
 
 ``function partition($size)``
 
-Partitions the source into arrays of size ``$size``. When transformer
-completes, the array will be stepped with any remaining items.
+Partitions the source into arrays of size ``$size``. When the reducing function
+array completes, the array will be stepped with any remaining items.
 
 .. code-block:: php
 
@@ -642,10 +656,10 @@ identity()
 
 ``function indentity($value)``
 
-Returns the provided value. This is useful for writing transform arrays that
-do not need to modify an 'init' or 'result' function. In these cases, you
+Returns the provided value. This is useful for writing reducing function arrays
+that do not need to modify an 'init' or 'result' function. In these cases, you
 can simply use the string ``'Transducers\identity'`` as the 'init' or 'result'
-function to continue to proxy to further transforms.
+function to continue to proxy to further reducers.
 
 indexed_iter()
 ~~~~~~~~~~~~~~

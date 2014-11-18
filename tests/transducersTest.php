@@ -285,4 +285,15 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $r = new t\Reduced('foo');
         $this->assertEquals('foo', $r->value);
     }
+
+    public function testCreatesReducers()
+    {
+        $t = t\create_reducer(
+            function ($r, $x) { return $r . $x; },
+            function () { return ''; }
+        );
+        $this->assertEquals('', $t['init']());
+        $this->assertEquals('ab', $t['step']('a', 'b'));
+        $this->assertEquals('foo', $t['result']('foo'));
+    }
 }
