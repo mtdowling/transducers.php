@@ -36,12 +36,14 @@ function:
 
     use Transducers as t;
 
-    $xf = t\comp(t\drop(2), t\take(5));
+    $xf = t\comp(
+        t\drop(2),
+        t\take(5)
+    );
 
 The above composed transducer skips the first two elements of a collection then
 takes 5 elements from the collection. This new transformation function can
-be used with ``Transducers\transduce()``, ``Transducers\xfiter()``,
-``Transducers\into()``, and ``Transducers\seq()``.
+be used with various transducer application functions, including ``seq()``.
 
 .. code-block:: php
 
@@ -131,16 +133,23 @@ Transform and reduce $coll by applying $xf($step)['step'] to each value.
   that map to a callable.
 - ``$coll``: Data to transform. Can be an array, iterator, or PHP stream
   resource.
-- ``$init``: Optional first initialization value of the reduction.
+- ``$init``: Optional first initialization value of the reduction. If this
+  value is not provided, the ``$step['init']()`` function will be called to
+  provide a default value.
 
-When using this function, you can use two built-in transformation functions as
+When using this function, you can use any of the built-in transform arrays as
 the ``$step`` argument:
 
-- ``Transducers\append()``: Creates a transformer step function that appends
+- ``Transducers\array_reducer()``: Creates a transform array that appends
   values to an array.
-- ``stream()``: Creates a transformer that writes values to a stream resource.
-  If no ``$init`` value is provided when transducing then a PHP temp stream
-  will be used.
+- ``Transducers\stream_reducer()``: Creates a transform array that writes
+  values to a stream resource. If no ``$init`` value is provided when
+  transducing then a PHP temp stream will be used.
+- ``Transducers\string_reducer()``: Creates a transform array that concatenates
+  each value to a string.
+- ``Transducers\assoc_reducer()``: Creates a transform array that adds key value
+  pairs to an associative array. Each value must be an array that contains the
+  array key in the first element and the array value in the second element.
 
 .. code-block:: php
 
@@ -149,11 +158,9 @@ the ``$step`` argument:
     $result = t\transduce(
         t\comp(
             t\cat(),
-            t\filter(function ($value) {
-                return $value % 2;
-            }),
+            t\filter(function ($value) { return $value % 2; }),
         ),
-        t\append(),
+        t\array_reducer(),
         [[1, 2], [3, 4]]
     );
 
@@ -167,6 +174,13 @@ into()
 Transduces items from ``$coll`` into the given ``$target``, in essence
 "pouring" transformed data from one source into another data type.
 
+This function does not attempt to discern between arrays and associative
+arrays. Any array or ArrayAccess object provided will be treated as an
+indexed array. When a string is provided, each value will be concatenated to
+the end of the string with no separator. When an fopen resource is provided,
+data will be written to the end of the stream with no separator between
+writes.
+
 .. code-block:: php
 
     use Transducers as t;
@@ -176,17 +190,11 @@ Transduces items from ``$coll`` into the given ``$target``, in essence
         // Remove one level of array nesting.
         t\cat(),
         // Filter out even values.
-        t\filter(function ($value) {
-            return $value % 2;
-        }),
+        t\filter(function ($value) { return $value % 2; }),
         // Multiply each value by 2
-        t\map(function ($value) {
-            return $value * 2;
-        }),
+        t\map(function ($value) { return $value * 2; }),
         // Immediately stop when the value is >= 15.
-        t\take_while(function($value) {
-            return $value < 15;
-        })
+        t\take_while(function($value) { return $value < 15; })
     );
 
     $data = [[1, 2, 3], [4, 5], [6], [], [7], [8, 9, 10, 11]];
@@ -194,10 +202,10 @@ Transduces items from ``$coll`` into the given ``$target``, in essence
     // Eagerly pour the transformed data, [2, 6, 10, 14], into an array.
     $result = t\into([], $transducer, $data);
 
-xfiter()
-~~~~~~~~
+to_iter()
+~~~~~~~~~
 
-``function iter($coll, callable $xf)``
+``function to_iter($coll, callable $xf)``
 
 Creates an iterator that **lazily** applies the transducer ``$xf`` to the
 ``$input`` iterator. Use this function when dealing with large amounts of data
@@ -216,28 +224,89 @@ or when you want operations to occur only as needed.
     // Create a transducer that multiplies each value by two and takes
     // ony 100 values.
     $xf = t\comp(
-        t\map(function ($value) {
-            return $value * 2;
-        }),
+        t\map(function ($value) { return $value * 2; }),
         t\take(100)
     );
 
-    // t\xfiter() returns an iterator that applies $xf lazily.
-    $iterator = t\xfiter($forever(), $xf);
-
-    foreach ($iterator as $value) {
+    foreach (t\to_iter($forever(), $xf) as $value) {
         echo $value;
     }
+
+to_array()
+~~~~~~~~~~
+
+``function to_array($iterable, callable $xf)``
+
+Converts a value to an array and applies a transducer function. ``$iterable``
+is passed through ``vec()`` in order to convert the input value into an array.
+
+.. code-block:: php
+
+    .. code-block:: php
+
+    $result = t\to_array(
+        'abc',
+        t\map(function ($v) { return strtoupper($v); }
+    );
+
+    // Contains: ['A', 'B', 'C']
+
+to_assoc()
+~~~~~~~~~~
+
+``function to_assoc($iterable, callable $xf)``
+
+Creates an associative array using the provided input while applying
+``$xf`` to each value. Values are converted to arrays that contain the
+array key in the first element and the array value in the second.
+
+.. code-block:: php
+
+    $result = t\to_assoc(
+        ['a' => 1, 'b' => 2],
+        t\map(function ($v) { return [$v[0], $v[1] + 1]; }
+    );
+
+    assert($result == ['a' => 2, 'b' => 3]);
+
+to_string()
+~~~~~~~~~~~
+
+``function to_string($iterable, callable $xf)``
+
+Converts a value to a string and applies a transducer function to each
+character. ``$iterable`` is passed through ``vec()`` in order to convert the
+input value into an array.
+
+.. code-block:: php
+
+    echo t\to_string(
+        ['a', 'b', 'c'],
+        t\map(function ($v) { return strtoupper($v); }
+    );
+
+    // Outputs: ABC
 
 seq()
 ~~~~~
 
 ``function seq($coll, callable $xf)``
 
-Returns the same data type passed in as ``$coll`` with ``$xf`` applied. When
-``$coll`` is an array, ``seq`` will pour that transformed data from ``$coll``
-into an array. When ``$coll`` is an iterator, ``seq`` will read from ``$coll``
-lazily and create an iterator that applies ``$xf`` to each yielded value.
+Returns the same data type passed in as ``$coll`` with ``$xf`` applied.
+
+``seq()`` using the following logic when returning values:
+
+- ``array``: Returns an array using the provided array.
+- ``associative array``: Turn the provided array into an indexed array, meaning
+  that each value passed to the ``step`` reduce function is an array where
+  the first element is the key and the second element is the value. When
+  completed, ``seq()`` returns an associative array.
+- ``\Iterator``: Returns an iterator in which ``$xf`` is applied lazily.
+- ``resource``: Reads single bytes from the provided value and returns a new
+  fopen resource that contains the bytes from the input resource after applying
+  ``$xf``.
+- ``string``: Passes each character from the string through to each step
+  function and returns a string.
 
 .. code-block:: php
 
@@ -255,6 +324,17 @@ lazily and create an iterator that applies ``$xf`` to each yielded value.
     rewind($stream);
     $result = t\seq($stream, t\compact());
     assert($result == '1234');
+
+    // Give a string and get back a string
+    $result = t\seq('abc', t\map(function ($v) { return strtoupper($v); }));
+    assert($result === 'abc');
+
+    // Give an associative array and get back an associative array.
+    $data = ['a' => 1, 'b' => 2];
+    $result = t\seq('abc', t\map(function ($v) {
+        return [strtoupper($v[0]), $v[1]];
+    }));
+    assert($result === ['A' => 1, 'B' => 2]);
 
 Available Transducers
 ---------------------
@@ -435,9 +515,11 @@ Keeps ``$f`` items for which ``$f`` does not return null.
 
 .. code-block:: php
 
-    $data = [0, false, null, true];
-    $xf = t\keep(function ($value) { return $value; });
-    $result = t\seq($data, $xf);
+    $result = t\seq(
+        [0, false, null, true],
+        t\keep(function ($value) { return $value; })
+    );
+
     assert($result == [0, false, true]);
 
 keep_indexed()
@@ -449,14 +531,14 @@ Returns a sequence of the non-null results of ``$f($index, $input)``.
 
 .. code-block:: php
 
-    $data = [0, false, null, true];
+    $result = t\seq(
+        [0, false, null, true],
+        t\keep_indexed(function ($index, $input) {
+            echo $index . ':' . json_encode($input) . ', ';
+            return $input;
+        })
+    );
 
-    $xf = t\keep_indexed(function ($index, $input) {
-        echo $index . ':' . json_encode($input) . ', ';
-        return $input;
-    });
-
-    $result = t\seq($data, $xf);
     assert($result == [0, false, true]);
 
     // Will echo: 0:0, 1:false, 2:null, 3:true,
@@ -471,8 +553,11 @@ duplicate values).
 
 .. code-block:: php
 
-    $data = ['a', 'b', 'b', 'c', 'c', 'c', 'b'];
-    $result = t\seq($data, t\dedupe());
+    $result = t\seq(
+        ['a', 'b', 'b', 'c', 'c', 'c', 'b'],
+        t\dedupe()
+    );
+
     assert($result == ['a', 'b', 'c', 'b']);
 
 interpose()
@@ -501,15 +586,18 @@ interceptor with current result and item.
 
 .. code-block:: php
 
-    $data = ['a', 'b', 'c'];
     // echo each value as it passes through the tap function.
     $tap = t\tap(function ($r, $x) { echo $x . ', '; });
-    $xf = t\comp(
-        $tap,
-        t\map(function ($v) { return strtoupper($v); }),
-        $tap
+
+    t\seq(
+        ['a', 'b', 'c'],
+        t\comp(
+            $tap,
+            t\map(function ($v) { return strtoupper($v); }),
+            $tap
+        )
     );
-    t\seq($data, $xf);
+
     // Prints: a, A, b, B, c, C,
 
 compact()
@@ -550,6 +638,31 @@ is an array containing the key followed by the value.
     $data = ['a' => 1, 'b' => 2];
     assert(t\indexed_iter($data) == [['a', 1], ['b', 2]];
 
+This can be combined with the ``assoc_reducer()`` to generate associative
+arrays.
+
+.. code-block:: php
+
+    $result = t\transduce(
+        t\map(function ($v) { return [$v[0], $v[1] + 1]; },
+        t\assoc(),
+        t\indexed_iter(['a' => 1, 'b' => 2])
+    );
+
+    assert($result == ['a' => 2, 'b' => 3]);
+
+You should really just use the ``t\to_assoc()`` function if you know you're
+reducing an associative array.
+
+.. code-block:: php
+
+    $result = t\to_assoc(
+        ['a' => 1, 'b' => 2],
+        t\map(function ($v) { return [$v[0], $v[1] + 1]; }
+    );
+
+    assert($result == ['a' => 2, 'b' => 3]);
+
 stream_iter()
 ~~~~~~~~~~~~~
 
@@ -575,21 +688,14 @@ Creates an iterator that reads from a stream using the given ``$size`` argument.
         echo $char . '-';
     }
 
-to_array()
-~~~~~~~~~~
-
-``function to_array($iterable)``
-
-Convert a value to an array. This function accepts arrays, ``\Iterators``, and
-strings. Arrays pass through unchanged, and iterators are returned using PHP's
-``iterator_to_array()`` function. Strings are split by character using
-``str_split()``.
-
 vec()
 ~~~~~
 
-Converts an iterable into a sequence of data that can be used in a foreach
-loop. Numerically indexed arrays and iterators are returned as-is. Associative
-arrays are returned as an indexed array where each value is an array containing
-the [key, value]. Strings are returned as an array of characters. Stream
-resources are returned as an \Iterator that yields single bytes.
+Converts an input value into something this is iterable (e.g., an array or
+``\Iterator``). This function accepts arrays, ``\Iterators``, PHP streams, and
+strings. Arrays pass through unchanged. Associative arrays are returned as
+iterators that yield arrays where each value is an array that contains the key
+of the array in the first element and the value of the array in the second
+element. Iterators are returned as-is. Strings are split by character using
+``str_split()``. PHP streams are converted into iterators that yield a single
+byte at a time.

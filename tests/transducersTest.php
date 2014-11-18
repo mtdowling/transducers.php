@@ -36,7 +36,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
 
     public function testReturnsAppendXform()
     {
-        $xf = t\append();
+        $xf = t\array_reducer();
         $this->assertEquals([], $xf['init']());
         $this->assertSame([10, 1], $xf['step']([10], 1));
         $this->assertSame([10], $xf['result']([10]));
@@ -44,7 +44,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
 
     public function testReturnsStreamXform()
     {
-        $xf = t\stream();
+        $xf = t\stream_reducer();
         $res = $xf['init']();
         $this->assertInternalType('resource', $res);
         $this->assertSame($res, $xf['step']($res, 'a'));
@@ -60,6 +60,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         fwrite($stream, '012304');
         rewind($stream);
         $result = t\seq($stream, t\compact());
+        rewind($result);
         $this->assertEquals('1234', stream_get_contents($result));
     }
 
@@ -245,17 +246,32 @@ class functionsTest extends \PHPUnit_Framework_TestCase
 
     public function testConvertsToArray()
     {
-        $this->assertEquals([1, 2], t\to_array([1, 2]));
-        $this->assertEquals([1, 2], t\to_array(new \ArrayIterator([1, 2])));
-        $this->assertEquals(['a', 'b'], t\to_array('ab'));
+        $this->assertEquals(
+            [1, 2],
+            t\to_array([1, 2], t\compact())
+        );
+        $this->assertEquals(
+            [1, 2],
+            t\to_array(new \ArrayIterator([1, 2]), t\compact())
+        );
+        $this->assertEquals(
+            ['a', 'b'],
+            t\to_array('ab', t\compact())
+        );
     }
 
     /**
      * @expectedException \InvalidArgumentException
-     * @expectedExceptionMessage Do not know how to to_array collection: 1
+     * @expectedExceptionMessage Do not know how to vec collection: 1
      */
     public function testConvertsToArrayThrowsWhenInvalidType()
     {
-        t\to_array(1);
+        t\to_array(1, function () {});
+    }
+
+    public function testReducedConstructor()
+    {
+        $r = new t\Reduced('foo');
+        $this->assertEquals('foo', $r->value);
     }
 }

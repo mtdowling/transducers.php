@@ -2,133 +2,14 @@
 namespace Transducers;
 
 /**
- * Composes the provided variadic function arguments into a single function.
- *
- *     comp($f, $g) // returns $f($g(x))
- *
- * @return callable
- */
-function comp()
-{
-    $fns = func_get_args();
-    $total = count($fns) - 1;
-    return function ($value) use ($fns, $total) {
-        for ($i = $total; $i > -1; $i--) {
-            $value = $fns[$i]($value);
-        }
-        return $value;
-    };
-}
-
-/**
- * Returns the provided Reduced or wraps the value in a Reduced.
- *
- * @param mixed|Reduced $r Value to ensure is reduced.
- *
- * @return Reduced
- */
-function ensure_reduced($r)
-{
-    return $r instanceof Reduced ? $r : new Reduced($r);
-}
-
-/**
- * Returns the provided value.
- *
- * @param mixed $value Value to return
- *
- * @return mixed
- */
-function identity($value = null)
-{
-    return $value;
-}
-
-/**
- * Creates a transformer that appends values to an array.
- *
- * @return array Returns a transformer array.
- */
-function append()
-{
-    return [
-        'init'   => function () { return []; },
-        'result' => 'Transducers\identity',
-        'step'   => function ($result, $input) {
-            $result[] = $input;
-            return $result;
-        }
-    ];
-}
-
-/**
- * Creates a transducer that writes to a stream resource.
- *
- * @return array Returns a transformer array.
- */
-function stream()
-{
-    return [
-        'init' => function () {
-            return fopen('php://temp', 'w+');
-        },
-        'result' => function ($result) {
-            rewind($result);
-            return $result;
-        },
-        'step' => function ($result, $input) {
-            fwrite($result, $input);
-            return $result;
-        }
-    ];
-}
-
-/**
- * Transduces items from $coll into the given $target, in essence "pouring"
- * transformed data from one source into another data type.
- *
- * @param array|\ArrayAccess|resource    $target Where items are appended.
- * @param callable                       $xf     Transducer function.
- * @param mixed                          $coll   Sequence of data
- *
- * @return mixed
- * @throws \InvalidArgumentException
- */
-function into($target, callable $xf, $coll)
-{
-    if (is_array($target) || $target instanceof \ArrayAccess) {
-        return transduce($xf, append(), $coll, $target);
-    } elseif (is_resource($target)) {
-        return transduce($xf, stream(), $coll, $target);
-    }
-
-    throw _type_error('into', $coll);
-}
-
-/**
- * Creates an iterator that reads from a stream.
- *
- * @param resource $stream fopen() resource.
- * @param int      $size   Number of bytes to read for each read. Defaults to 1.
- *
- * @return \Iterator
- */
-function stream_iter($stream, $size = 1)
-{
-    while (!feof($stream)) {
-        yield fread($stream, $size);
-    }
-}
-
-/**
  * Lazily applies the transducer $xf to the $input iterator.
  *
- * @param mixed    $coll Iterable input to transform.
- * @param callable $xf   Transducer to apply.
+ * @param mixed    $iterable Iterable input to transform.
+ * @param callable $xf       Transducer to apply.
  *
  * @return \Iterator Returns an iterator that lazily applies transformations.
  */
-function xfiter($coll, callable $xf)
+function to_iter($iterable, callable $xf)
 {
     $items = [];
     $reducer = $xf([
@@ -142,7 +23,7 @@ function xfiter($coll, callable $xf)
 
     $result = $reducer['init']();
 
-    foreach ($coll as $input) {
+    foreach ($iterable as $input) {
         $result = $reducer['step']($result, $input);
         // Yield each queued value from the step function.
         while ($items) {
@@ -163,7 +44,88 @@ function xfiter($coll, callable $xf)
 }
 
 /**
+ * Converts a value to an array using a transducer function.
+ *
+ * @param mixed    $coll Value to convert.
+ * @param callable $xf   Transducer to apply.
+ *
+ * @return array
+ * @throws \InvalidArgumentException
+ */
+function to_array($coll, callable $xf)
+{
+    return transduce($xf, array_reducer(), vec($coll), []);
+}
+
+/**
+ * Converts a value to an associative array using a transducer function.
+ *
+ * Do not provide an indexed array (i.e., [[0, 1], [1, 1], [2, 2]]) as this
+ * function will do that for you. Note that values yielded through each
+ * transducer will be an array where element 0 is the associative array key and
+ * element 1 is the associative array value.
+ *
+ * @param mixed    $coll Value to convert.
+ * @param callable $xf   Transducer to apply.
+ *
+ * @return array Returns an associative array.
+ * @throws \InvalidArgumentException
+ */
+function to_assoc($coll, callable $xf)
+{
+    return transduce($xf, assoc_reducer(), indexed_iter($coll), []);
+}
+
+/**
+ * Reduces a value to a string by concatenating each step value to a string.
+ *
+ * @param mixed    $coll Value to convert.
+ * @param callable $xf   Transducer to apply.
+ *
+ * @return string
+ * @throws \InvalidArgumentException
+ */
+function to_string($coll, callable $xf)
+{
+    return transduce($xf, string_reducer(), vec($coll), '');
+}
+
+/**
+ * Transduces items from $coll into the given $target, in essence "pouring"
+ * transformed data from one source into another data type.
+ *
+ * This function does not attempt to discern between arrays and associative
+ * arrays. Any array or ArrayAccess object provided will be treated as an
+ * indexed array. When a string is provided, each value will be concatenated to
+ * the end of the string with no separator. When an fopen resource is provided,
+ * data will be written to the end of the stream with no separator between
+ * writes.
+ *
+ * @param array|\ArrayAccess|resource|string $target Where items are appended.
+ * @param callable                           $xf     Transducer function.
+ * @param mixed                              $coll   Sequence of data
+ *
+ * @return mixed
+ * @throws \InvalidArgumentException
+ */
+function into($target, callable $xf, $coll)
+{
+    if (is_array($target) || $target instanceof \ArrayAccess) {
+        return transduce($xf, array_reducer(), $coll, $target);
+    } elseif (is_resource($target)) {
+        return transduce($xf, stream_reducer(), $coll, $target);
+    } elseif (is_string($target)) {
+        return transduce($xf, string_reducer(), $coll, $target);
+    }
+
+    throw type_error('into', $coll);
+}
+
+/**
  * Returns the same data type passed in as $coll with $xf applied.
+ *
+ * This function will turn associative arrays into a stream of arrays that
+ * contain the array key in the first element and values in the second element.
  *
  * @param array|\Iterator|resource $coll Data to transform.
  * @param callable                 $xf   Transducer to apply.
@@ -173,104 +135,19 @@ function xfiter($coll, callable $xf)
 function seq($coll, callable $xf)
 {
     if (is_array($coll)) {
-        return transduce($xf, append(), $coll, []);
+        reset($coll);
+        return key($coll) === 0
+            ? transduce($xf, array_reducer(), $coll, [])
+            : transduce($xf, assoc_reducer(), indexed_iter($coll), []);
     } elseif ($coll instanceof \Iterator) {
-        return xfiter($coll, $xf);
+        return to_iter($coll, $xf);
     } elseif (is_resource($coll)) {
-        return transduce($xf, stream(), stream_iter($coll));
+        return transduce($xf, stream_reducer(), stream_iter($coll));
+    } elseif (is_string($coll)) {
+        return transduce($xf, string_reducer(), str_split($coll));
     }
 
-    throw _type_error('seq', $coll);
-}
-
-/**
- * Converts an iterable into a sequence of data.
- *
- * When provided an indexed array, the array is returned as-is. When provided
- * an associative array, an iterator is returned where each value is an array
- * containing the [key, value]. When a stream is provided, an iterator is
- * returned that yields bytes from the stream. When an iterator is provided,
- * it is returned as-is. To force an iterator to be an indexed iterator, you
- * must use the indexed_iter() function.
- *
- * @param array|\Iterator|resource $iterable Data to convert to a sequence.
- *
- * @return array|\Iterator
- * @throws \InvalidArgumentException
- */
-function vec($iterable)
-{
-    switch (gettype($iterable)) {
-        case 'array':
-            return !$iterable || array_keys($iterable)[0] === 0
-                ? $iterable
-                : indexed_iter($iterable);
-        case 'string': return str_split($iterable);
-        case 'resource': return stream_iter($iterable);
-        case 'object':
-            if ($iterable instanceof \Iterator) {
-                return $iterable;
-            }
-    }
-
-    throw _type_error('vec', $iterable);
-}
-
-/**
- * Converts an iterable into an indexed array iterator where each value yielded
- * is an array containing the key followed by the value.
- *
- * @param mixed $iterable Value to convert to an indexed iterator
- *
- * @return \Iterator
- */
-function indexed_iter($iterable)
-{
-    foreach ($iterable as $key => $value) {
-        yield [$key, $value];
-    }
-}
-
-/**
- * Convert a value to an array.
- *
- * @param mixed $iterable Value to convert.
- *
- * @return array
- * @throws \InvalidArgumentException
- */
-function to_array($iterable)
-{
-    if (is_array($iterable)) {
-        return $iterable;
-    } elseif ($iterable instanceof \Iterator) {
-        return iterator_to_array($iterable);
-    } elseif (is_string($iterable)) {
-        return str_split($iterable);
-    }
-
-    throw _type_error('to_array', $iterable);
-}
-
-/**
- * Reduces the given iterable using the provided reduce function $fn. The
- * reduction is short-circuited if $fn returns an instance of Reduced.
- *
- * @param callable $fn    Reduce function.
- * @param mixed    $coll  Iterable data to transform.
- * @param mixed    $accum Initial accumulated value.
- * @return mixed Returns the reduced value
- */
-function reduce(callable $fn, $coll, $accum = null)
-{
-    foreach ($coll as $input) {
-        $accum = $fn($accum, $input);
-        if ($accum instanceof Reduced) {
-            return $accum->value;
-        }
-    }
-
-    return $accum;
+    throw type_error('seq', $coll);
 }
 
 /**
@@ -297,6 +174,10 @@ function transduce(callable $xf, array $step, $coll, $init = null)
     $reducer = $xf($step);
     return $reducer['result'](reduce($reducer['step'], $coll, $init));
 }
+
+//-----------------------------------------------------------------------------
+// Transducers
+//-----------------------------------------------------------------------------
 
 /**
  * Applies a map function $f to each value in a collection.
@@ -713,13 +594,218 @@ function tap(callable $interceptor)
     };
 }
 
+//-----------------------------------------------------------------------------
+// Reducers
+//-----------------------------------------------------------------------------
+
+/**
+ * Creates an array reducer that appends values to an array or object that
+ * implements {@see ArrayAccess}.
+ *
+ * @return array Returns a transform step array.
+ */
+function array_reducer()
+{
+    return [
+        'init'   => function () { return []; },
+        'result' => 'Transducers\identity',
+        'step'   => function ($result, $input) {
+            $result[] = $input;
+            return $result;
+        }
+    ];
+}
+
+/**
+ * Creates a hash map reducer that merges values into an associative array.
+ * This reducer assumes that the provided value is an array where the key is
+ * in the first index and the value is in the second index.
+ *
+ * @return array Returns a transform step array.
+ */
+function assoc_reducer()
+{
+    return [
+        'init'   => function () { return []; },
+        'result' => 'Transducers\identity',
+        'step'   => function ($result, $input) {
+            $result[$input[0]] = $input[1];
+            return $result;
+        }
+    ];
+}
+
+/**
+ * Creates a stream reducer for PHP stream resources.
+ *
+ * @return array Returns a transform step array.
+ */
+function stream_reducer()
+{
+    return [
+        'init'   => function () { return fopen('php://temp', 'w+'); },
+        'result' => 'Transducers\identity',
+        'step' => function ($result, $input) {
+            fwrite($result, $input);
+            return $result;
+        }
+    ];
+}
+
+/**
+ * Creates a string reducer that concatenates values into a string.
+ *
+ * @param string $joiner Optional string to concatenate between each value.
+ *
+ * @return array Returns a transform step array.
+ */
+function string_reducer($joiner = '')
+{
+    return [
+        'init'   => function () { return ''; },
+        'result' => 'Transducers\identity',
+        'step'   => function ($r, $x) use ($joiner) {
+            return $r . $joiner . $x;
+        }
+    ];
+}
+
+//-----------------------------------------------------------------------------
+// Utility functions
+//-----------------------------------------------------------------------------
+
+/**
+ * Composes the provided variadic function arguments into a single function.
+ *
+ *     comp($f, $g) // returns $f($g(x))
+ *
+ * @return callable
+ */
+function comp()
+{
+    $fns = func_get_args();
+    $total = count($fns) - 1;
+    return function ($value) use ($fns, $total) {
+        for ($i = $total; $i > -1; $i--) {
+            $value = $fns[$i]($value);
+        }
+        return $value;
+    };
+}
+
+/**
+ * Reduces the given iterable using the provided reduce function $fn. The
+ * reduction is short-circuited if $fn returns an instance of Reduced.
+ *
+ * @param callable $fn    Reduce function.
+ * @param mixed    $coll  Iterable data to transform.
+ * @param mixed    $accum Initial accumulated value.
+ * @return mixed Returns the reduced value
+ */
+function reduce(callable $fn, $coll, $accum = null)
+{
+    foreach ($coll as $input) {
+        $accum = $fn($accum, $input);
+        if ($accum instanceof Reduced) {
+            return $accum->value;
+        }
+    }
+
+    return $accum;
+}
+
+/**
+ * Converts an iterable into a sequence of data.
+ *
+ * When provided an indexed array, the array is returned as-is. When provided
+ * an associative array, an iterator is returned where each value is an array
+ * containing the [key, value]. When a stream is provided, an iterator is
+ * returned that yields bytes from the stream. When an iterator is provided,
+ * it is returned as-is. To force an iterator to be an indexed iterator, you
+ * must use the indexed_iter() function.
+ *
+ * @param array|\Iterator|resource $iterable Data to convert to a sequence.
+ *
+ * @return array|\Iterator
+ * @throws \InvalidArgumentException
+ */
+function vec($iterable)
+{
+    if (is_array($iterable)) {
+        reset($iterable);
+        return key($iterable) === 0 ? $iterable : indexed_iter($iterable);
+    } elseif ($iterable instanceof \Iterator) {
+        return $iterable;
+    } elseif (is_resource($iterable)) {
+        return stream_iter($iterable);
+    } elseif (is_string($iterable)) {
+        return str_split($iterable);
+    }
+
+    throw type_error('vec', $iterable);
+}
+
+/**
+ * Returns the provided Reduced or wraps the value in a Reduced.
+ *
+ * @param mixed|Reduced $r Value to ensure is reduced.
+ *
+ * @return Reduced
+ */
+function ensure_reduced($r)
+{
+    return $r instanceof Reduced ? $r : new Reduced($r);
+}
+
+/**
+ * Returns the provided value.
+ *
+ * @param mixed $value Value to return
+ *
+ * @return mixed
+ */
+function identity($value = null)
+{
+    return $value;
+}
+
+/**
+ * Converts an iterable into an indexed array iterator where each value yielded
+ * is an array containing the key followed by the value.
+ *
+ * @param mixed $iterable Value to convert to an indexed iterator
+ *
+ * @return \Iterator
+ */
+function indexed_iter($iterable)
+{
+    foreach ($iterable as $key => $value) {
+        yield [$key, $value];
+    }
+}
+
+/**
+ * Creates an iterator that reads from a stream.
+ *
+ * @param resource $stream fopen() resource.
+ * @param int      $size   Number of bytes to read for each read. Defaults to 1.
+ *
+ * @return \Iterator
+ */
+function stream_iter($stream, $size = 1)
+{
+    while (!feof($stream)) {
+        yield fread($stream, $size);
+    }
+}
+
 /**
  * @param string $name Name of the function that was called.
  * @param mixed  $coll Data that was provided.
  *
  * @return \InvalidArgumentException
  */
-function _type_error($name, $coll)
+function type_error($name, $coll)
 {
     if (is_object($coll)) {
         $description = get_class($coll);
@@ -730,4 +816,18 @@ function _type_error($name, $coll)
     }
     return new \InvalidArgumentException("Do not know how to $name collection: "
         . $description);
+}
+
+//-----------------------------------------------------------------------------
+// Utility classes
+//-----------------------------------------------------------------------------
+
+class Reduced
+{
+    public $value;
+
+    public function __construct($value)
+    {
+        $this->value = $value;
+    }
 }

@@ -4,12 +4,12 @@ test:
 	vendor/bin/phpunit
 
 coverage:
-	vendor/bin/phpunit --coverage-html=build/artifacts/coverage
+	vendor/bin/phpunit --coverage-html=artifacts/coverage
 
 view-coverage:
-	open build/artifacts/coverage/index.html
+	open artifacts/coverage/index.html
 
 clean:
-	rm -rf build/artifacts/*
+	rm -rf artifacts/*
 
 .PHONY: coverage
