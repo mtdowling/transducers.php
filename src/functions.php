@@ -12,7 +12,6 @@ function comp()
 {
     $fns = func_get_args();
     $total = count($fns) - 1;
-
     return function ($value) use ($fns, $total) {
         for ($i = $total; $i > -1; $i--) {
             $value = $fns[$i]($value);
@@ -53,7 +52,7 @@ function identity($value = null)
 function append()
 {
     return [
-        'init'   => function () { return  []; },
+        'init'   => function () { return []; },
         'result' => 'Transducers\identity',
         'step'   => function ($result, $input) {
             $result[] = $input;
@@ -296,9 +295,7 @@ function transduce(callable $xf, array $step, $coll, $init = null)
     }
 
     $reducer = $xf($step);
-    $result = $reducer['result'](reduce($reducer['step'], $coll, $init));
-
-    return $result instanceof Reduced ? $result->value : $result;
+    return $reducer['result'](reduce($reducer['step'], $coll, $init));
 }
 
 /**
