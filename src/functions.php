@@ -439,12 +439,10 @@ function take($n)
         return [
             'init'   => $xf['init'],
             'result' => $xf['result'],
-            'step'   => $n <= 0
-                ? $xf['step']
-                : function ($result, $input) use (&$remaining, $xf) {
-                    $result = $xf['step']($result, $input);
-                    return --$remaining ? $result : ensure_reduced($result);
-                }
+            'step'   => function ($r, $input) use (&$remaining, $xf) {
+                $r = $xf['step']($r, $input);
+                return --$remaining > 0 ? $r : ensure_reduced($r);
+            }
         ];
     };
 }
