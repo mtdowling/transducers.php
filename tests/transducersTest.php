@@ -67,7 +67,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     public function testCompactTrimsFalseyValues()
     {
         $data = [0, false, true, 10, ' ', 'a'];
-        $result = t\into([], t\compact(), $data);
+        $result = t\into([], $data, t\compact());
         $this->assertEquals([true, 10, ' ', 'a'], $result);
     }
 
@@ -75,23 +75,23 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $data = ['a', 'b', 'c'];
         $res = [];
-        $result = t\into([], t\tap(function ($r, $x) use (&$res) {
+        $result = t\into([], $data, t\tap(function ($r, $x) use (&$res) {
             $res[] = $x;
-        }), $data);
+        }));
         $this->assertSame($res, $result);
     }
 
     public function testInterposes()
     {
         $data = ['a', 'b', 'c'];
-        $result = t\into([], t\interpose('-'), $data);
+        $result = t\into([], $data, t\interpose('-'));
         $this->assertEquals(['a', '-', 'b', '-', 'c'], $result);
     }
 
     public function testRemovesDuplicates()
     {
         $data = ['a', 'b', 'b', 'c', 'c', 'c', 'b'];
-        $result = t\into([], t\dedupe(), $data);
+        $result = t\into([], $data, t\dedupe());
         $this->assertEquals(['a', 'b', 'c', 'b'], $result);
     }
 
@@ -99,7 +99,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $data = ['a', 'b', 'c'];
         $xf = t\map(function ($value) { return strtoupper($value); });
-        $result = t\into([], $xf, $data);
+        $result = t\into([], $data, $xf);
         $this->assertEquals(['A', 'B', 'C'], $result);
     }
 
@@ -107,7 +107,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $data = [1, 2, 3, 4];
         $odd = function ($value) { return $value % 2; };
-        $result = t\into([], t\filter($odd), $data);
+        $result = t\into([], $data, t\filter($odd));
         $this->assertEquals([1, 3], $result);
     }
 
@@ -115,14 +115,14 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $data = [1, 2, 3, 4];
         $odd = function ($value) { return $value % 2; };
-        $result = t\into([], t\remove($odd), $data);
+        $result = t\into([], $data, t\remove($odd));
         $this->assertEquals([2, 4], $result);
     }
 
     public function testCats()
     {
         $data = [[1, 2], 3, [], [4, 5]];
-        $result = t\into([], t\cat(), $data);
+        $result = t\into([], $data, t\cat());
         $this->assertEquals($result, [1, 2, 3, 4, 5]);
     }
 
@@ -130,14 +130,14 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $data = [[1, 2], [3], [], [4, 5]];
         $xf = t\mapcat(function ($value) { return array_sum($value); });
-        $result = t\into([], $xf, $data);
+        $result = t\into([], $data, $xf);
         $this->assertEquals($result, [3, 3, 0, 9]);
     }
 
     public function testFlattensIterables()
     {
         $data = [[1, 2], [3, [4, 5, new \ArrayObject([6, 7])]], [], [8, 9]];
-        $result = t\into([], t\flatten(), $data);
+        $result = t\into([], $data, t\flatten());
         $this->assertEquals($result, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
     }
 
@@ -145,7 +145,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $data = [1, 2, 3, 4, 5];
         $xf = t\partition(2);
-        $result = t\into([], $xf, $data);
+        $result = t\into([], $data, $xf);
         $this->assertEquals($result, [[1, 2], [3, 4], [5]]);
     }
 
@@ -153,7 +153,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $data = [['a', 1], ['a', 2], [2, 3], ['c', 4]];
         $xf = t\partition_by(function ($v) { return is_string($v[0]); });
-        $result = t\into([], $xf, $data);
+        $result = t\into([], $data, $xf);
         $this->assertEquals(
             $result,
             [[['a', 1], ['a', 2]], [[2, 3]], [['c', 4]]]

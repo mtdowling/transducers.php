@@ -102,13 +102,13 @@ function to_string($coll, callable $xf)
  * writes.
  *
  * @param array|\ArrayAccess|resource|string $target Where items are appended.
- * @param callable                           $xf     Transducer function.
  * @param mixed                              $coll   Sequence of data
+ * @param callable                           $xf     Transducer function.
  *
  * @return mixed
  * @throws \InvalidArgumentException
  */
-function into($target, callable $xf, $coll)
+function into($target, $coll, callable $xf)
 {
     if (is_array($target) || $target instanceof \ArrayAccess) {
         return transduce($xf, array_reducer(), $coll, $target);

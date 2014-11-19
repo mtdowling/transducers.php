@@ -184,7 +184,7 @@ arrays as the ``$step`` argument:
 into()
 ~~~~~~
 
-``function into($target, callable $xf, $coll)``
+``function into($target, $coll, callable $xf)``
 
 Transduces items from ``$coll`` into the given ``$target``, in essence
 "pouring" transformed data from one source into another data type.
@@ -215,7 +215,7 @@ writes.
     $data = [[1, 2, 3], [4, 5], [6], [], [7], [8, 9, 10, 11]];
 
     // Eagerly pour the transformed data, [2, 6, 10, 14], into an array.
-    $result = t\into([], $transducer, $data);
+    $result = t\into([], $data, $transducer);
 
 to_iter()
 ~~~~~~~~~
@@ -464,7 +464,7 @@ present list.
 
     $data = [['a', 1], ['a', 2], [2, 3], ['c', 4]];
     $xf = t\partition_by(function ($v) { return is_string($v[0]); });
-    $result = t\into([], $xf, $data);
+    $result = t\into([], $data, $xf);
 
     assert($result == [
         [['a', 1], ['a', 2]],
