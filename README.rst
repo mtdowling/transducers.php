@@ -99,7 +99,7 @@ Reducing function arrays are PHP associative arrays that contain a 'init',
 |  init  |           none          | Invoked to initialize a transducer. This |
 |        |                         | function should call the 'init' function |
 |        |                         | on the nested reducing function array    |
-|        |                         |  ``$xf``, which will eventually call out |
+|        |                         | ``$xf``, which will eventually call out  |
 |        |                         | to the transducing process. This function|
 |        |                         | is only called when an initial value is  |
 |        |                         | not provided while transducing.          |
