@@ -255,6 +255,9 @@ function cat()
             'init'   => $xf['init'],
             'result' => $xf['result'],
             'step'   => function ($result, $input) use ($xf) {
+                if (!is_iterable($input)) {
+                    return $xf['step']($result, $input);
+                }
                 foreach ((array) $input as $value) {
                     $result = $xf['step']($result, $value);
                 }
@@ -275,6 +278,32 @@ function cat()
 function mapcat(callable $f)
 {
     return comp(map($f), cat());
+}
+
+/**
+ * Takes any nested combination of sequential things and returns their contents
+ * as a single, flat sequence.
+ *
+ * @return callable
+ */
+function flatten()
+{
+    return function (array $xf) {
+        return [
+            'init'   => $xf['init'],
+            'result' => $xf['result'],
+            'step'   => function ($result, $input) use ($xf) {
+                if (!is_iterable($input)) {
+                    return $xf['step']($result, $input);
+                }
+                $it = new \RecursiveIteratorIterator(new \RecursiveArrayIterator($input));
+                foreach ($it as $value) {
+                    $result = $xf['step']($result, $value);
+                }
+                return $result;
+            }
+        ];
+    };
 }
 
 /**
@@ -863,6 +892,24 @@ function stream_iter($stream, $size = 1)
     while (!feof($stream)) {
         yield fread($stream, $size);
     }
+}
+
+/**
+ * Returns true if the provided $coll is something that can be iterated in a
+ * foreach loop.
+ *
+ * This function treats arrays, instances of \Traversable, and stdClass as
+ * iterable.
+ *
+ * @param mixed $coll
+ *
+ * @return bool
+ */
+function is_iterable($coll)
+{
+    return is_array($coll)
+        || $coll instanceof \Traversable
+        || $coll instanceof \stdClass;
 }
 
 /**

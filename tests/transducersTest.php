@@ -121,7 +121,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
 
     public function testCats()
     {
-        $data = [[1, 2], [3], [], [4, 5]];
+        $data = [[1, 2], 3, [], [4, 5]];
         $result = t\into([], t\cat(), $data);
         $this->assertEquals($result, [1, 2, 3, 4, 5]);
     }
@@ -132,6 +132,13 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $xf = t\mapcat(function ($value) { return array_sum($value); });
         $result = t\into([], $xf, $data);
         $this->assertEquals($result, [3, 3, 0, 9]);
+    }
+
+    public function testFlattensIterables()
+    {
+        $data = [[1, 2], [3, [4, 5, new \ArrayObject([6, 7])]], [], [8, 9]];
+        $result = t\into([], t\flatten(), $data);
+        $this->assertEquals($result, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
     }
 
     public function testPartitions()
@@ -295,5 +302,13 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('', $t['init']());
         $this->assertEquals('ab', $t['step']('a', 'b'));
         $this->assertEquals('foo', $t['result']('foo'));
+    }
+
+    public function testChecksIfIterable()
+    {
+        $this->assertTrue(t\is_iterable([1, 2]));
+        $this->assertTrue(t\is_iterable(new \ArrayObject([1, 2])));
+        $this->assertTrue(t\is_iterable(new \stdClass()));
+        $this->assertFalse(t\is_iterable('a'));
     }
 }

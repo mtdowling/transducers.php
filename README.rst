@@ -423,6 +423,20 @@ nesting.
     $result = t\seq($data, $xf);
     assert($result == [3, 3, 0, 9]);
 
+flatten()
+~~~~~~~~~
+
+``function flatten()``
+
+Takes any nested combination of sequential things and returns their contents as
+a single, flat sequence.
+
+.. code-block:: php
+
+    $data = [[1, 2], 3, [4, new ArrayObject([5, 6])]];
+    $result = t\to_array($data, t\flatten());
+    assert($result == [1, 2, 3, 4, 5, 6]);
+
 partition()
 ~~~~~~~~~~~
 
@@ -727,6 +741,8 @@ Creates an iterator that reads from a stream using the given ``$size`` argument.
 vec()
 ~~~~~
 
+``function vec($iterable)``
+
 Converts an input value into something this is iterable (e.g., an array or
 ``\Iterator``). This function accepts arrays, ``\Iterators``, PHP streams, and
 strings. Arrays pass through unchanged. Associative arrays are returned as
@@ -735,3 +751,20 @@ of the array in the first element and the value of the array in the second
 element. Iterators are returned as-is. Strings are split by character using
 ``str_split()``. PHP streams are converted into iterators that yield a single
 byte at a time.
+
+is_iterable()
+~~~~~~~~~~~~~
+
+``function is_iterable($coll)``
+
+Returns true if the provided $coll is something that can be iterated in a
+foreach loop. This function treats arrays, instances of \Traversable, and
+stdClass as iterable.
+
+reduce()
+~~~~~~~~
+
+``function reduce(callable $fn, $coll, $accum = null)``
+
+Reduces the given iterable using the provided reduce function $fn. The
+reduction is short-circuited if $fn returns an instance of Reduced.
