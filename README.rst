@@ -166,6 +166,30 @@ arrays as the ``$step`` argument:
   argument is the result function which takes a single result argument and is
   expected to return a final result.
 
+  .. code-block:: php
+
+      $result = t\transduce(
+          t\cat(),
+          t\create_reducer(function ($r, $x) { return $r + $x; }),
+          [[1, 2], [3, 4]]
+      );
+
+      // Result is equal to 10
+
+- ``Transducers\operator_reducer()``: Creates a reducing function array that
+  uses the provided infix operator to reduce the collection (i.e.,
+  $result <operator> $input). Supports: '.', '+', '-', '*', and '/' operators.
+
+  .. code-block:: php
+
+      $result = t\transduce(
+          t\cat()
+          t\operator_reducer('+'),
+          [[1, 2], [3, 4]]
+      );
+
+      // Result is equal to 10
+
 .. code-block:: php
 
     use Transducers as t;

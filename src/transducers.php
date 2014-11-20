@@ -745,6 +745,40 @@ function string_reducer($joiner = '')
 }
 
 /**
+ * Creates a reducing function array that uses the provided infix operator to
+ * reduce the collection (i.e., $result <operator> $input).
+ *
+ * Supports: '.', '+', '-', '*', and '/' operators.
+ *
+ * @param string $operator Infix operator to use.
+ *
+ * @return array Returns a reducing function array.
+ */
+function operator_reducer($operator)
+{
+    static $reducers;
+    if (!$reducers) {
+        $reducers = [
+            '.'  => function ($r, $x) { return $r . $x; },
+            '+'  => function ($r, $x) { return $r + $x; },
+            '-'  => function ($r, $x) { return $r - $x; },
+            '*'  => function ($r, $x) { return $r * $x; },
+            '/'  => function ($r, $x) { return $r / $x; }
+        ];
+    }
+
+    if (!isset($reducers[$operator])) {
+        throw new \InvalidArgumentException("A reducer is not defined for {$operator}");
+    }
+
+    return [
+        'init'   => 'Transducers\identity',
+        'result' => 'Transducers\identity',
+        'step'   => $reducers[$operator]
+    ];
+}
+
+/**
  * Convenience function for creating a reducing function array.
  *
  * @param callable $step   Step function that accepts $accum, $input and

@@ -311,4 +311,24 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue(t\is_iterable(new \stdClass()));
         $this->assertFalse(t\is_iterable('a'));
     }
+
+    public function testHasOperatorReducer()
+    {
+        $xf = t\compact();
+        $data = [1, 2, 3];
+        $this->assertEquals(6, t\transduce($xf, t\operator_reducer('+'), $data));
+        $this->assertEquals(-6, t\transduce($xf, t\operator_reducer('-'), $data));
+        $this->assertEquals(0, t\transduce($xf, t\operator_reducer('*'), $data));
+        $this->assertEquals(6, t\transduce($xf, t\operator_reducer('*'), $data, 1));
+        $this->assertEquals(0.16666666666666666, t\transduce($xf, t\operator_reducer('/'), $data, 1));
+        $this->assertEquals('123', t\transduce($xf, t\operator_reducer('.'), $data));
+    }
+
+    /**
+     * @expectedException \InvalidArgumentException
+     */
+    public function testEnsuresOperatorIsValid()
+    {
+        t\operator_reducer('!');
+    }
 }
