@@ -144,20 +144,71 @@ Transform and reduce $coll by applying $xf($step)['step'] to each value.
   value is not provided, the ``$step['init']()`` function will be called to
   provide a default value.
 
+.. code-block:: php
+
+    use Transducers as t;
+
+    $result = t\transduce(
+        t\comp(
+            t\cat(),
+            t\filter(function ($value) { return $value % 2; }),
+        ),
+        t\array_reducer(),
+        [[1, 2], [3, 4]]
+    );
+
+    // Contains: [1, 3]
+
 When using this function, you can use any of the built-in reducing function
 arrays as the ``$step`` argument:
 
 - ``Transducers\array_reducer()``: Creates a reducing function array that
   appends values to an array.
+
+  .. code-block:: php
+
+      $result = t\transduce(
+          t\cat(),
+          t\array_reducer(),
+          [[1, 2], [3, 4]]
+      );
+
+      // Results contains [1, 2, 3, 4]
+
 - ``Transducers\stream_reducer()``: Creates a reducing function array that
   writes values to a stream resource. If no ``$init`` value is provided when
   transducing then a PHP temp stream will be used.
+
+  .. code-block:: php
+
+      $result = t\transduce(
+          t\cat(),
+          t\stream_reducer(),
+          [[1, 2], [3, 4]]
+      );
+
+      fseek($result, 0);
+      echo stream_get_contents($result);
+      // Outputs: 1234
+
 - ``Transducers\string_reducer()``: Creates a reducing function array that
   concatenates each value to a string.
+
+  .. code-block:: php
+
+      $result = t\transduce(
+          t\cat(),
+          t\string_reducer('|'), // use an optional joiner
+          [[1, 2], [3, 4]]
+      );
+
+      // Result is '1|2|3|4'
+
 - ``Transducers\assoc_reducer()``: Creates a reducing function array that adds
   key value pairs to an associative array. Each value must be an array that
   contains the array key in the first element and the array value in the second
   element.
+
 - ``Transducers\create_reducer()``: Convenience function that can be used to
   quickly create reducing function arrays. The first and only required argument
   is a step function that takes the accumulated result and the new value and
@@ -189,21 +240,6 @@ arrays as the ``$step`` argument:
       );
 
       // Result is equal to 10
-
-.. code-block:: php
-
-    use Transducers as t;
-
-    $result = t\transduce(
-        t\comp(
-            t\cat(),
-            t\filter(function ($value) { return $value % 2; }),
-        ),
-        t\array_reducer(),
-        [[1, 2], [3, 4]]
-    );
-
-    // Contains: [1, 3]
 
 into()
 ~~~~~~
