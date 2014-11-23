@@ -1,7 +1,7 @@
 <?php
-namespace Transducers\Tests;
+namespace transducers\Tests;
 
-use Transducers as t;
+use transducers as t;
 
 class functionsTest extends \PHPUnit_Framework_TestCase
 {
@@ -64,6 +64,31 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('1234', stream_get_contents($result));
     }
 
+    public function testSeqAppliesToIterator()
+    {
+        $xf = t\compact();
+        $data = new \ArrayIterator([1, false, 2, null]);
+        $iter = t\seq($data, $xf);
+        $this->assertInstanceOf('Generator', $iter);
+        $this->assertEquals([1, 2], iterator_to_array($iter));
+    }
+
+    public function testSeqAppliesToString()
+    {
+        $xf = t\map(function ($v) { return strtoupper($v); });
+        $data = 'foo';
+        $this->assertSame('FOO', t\seq($data, $xf));
+    }
+
+    /**
+     * @expectedExceptionMessage Do not know how to seq collection
+     * @expectedException \InvalidArgumentException
+     */
+    public function testSeqThrowsWhenUnknownDataType()
+    {
+        t\seq(false, t\compact());
+    }
+
     public function testCompactTrimsFalseyValues()
     {
         $data = [0, false, true, 10, ' ', 'a'];
@@ -122,7 +147,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     public function testCats()
     {
         $data = [[1, 2], 3, [], [4, 5]];
-        $result = t\into([], $data, t\cat());
+        $result = t\into([], $data, 'transducers\cat');
         $this->assertEquals($result, [1, 2, 3, 4, 5]);
     }
 
@@ -141,6 +166,13 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($result, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
     }
 
+    public function testFlattenSkipsNonIterables()
+    {
+        $data = ['abc'];
+        $result = t\into([], $data, t\flatten());
+        $this->assertEquals($result, ['abc']);
+    }
+
     public function testPartitions()
     {
         $data = [1, 2, 3, 4, 5];
@@ -151,12 +183,12 @@ class functionsTest extends \PHPUnit_Framework_TestCase
 
     public function testPartitionsByPredicate()
     {
-        $data = [['a', 1], ['a', 2], [2, 3], ['c', 4]];
+        $data = [['a', 1], ['a', 2], ['a', 3], [2, 4], ['c', 5]];
         $xf = t\partition_by(function ($v) { return is_string($v[0]); });
         $result = t\into([], $data, $xf);
         $this->assertEquals(
             $result,
-            [[['a', 1], ['a', 2]], [[2, 3]], [['c', 4]]]
+            [[['a', 1], ['a', 2], ['a', 3]], [[2, 4]], [['c', 5]]]
         );
     }
 
@@ -308,6 +340,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertTrue(t\is_iterable([1, 2]));
         $this->assertTrue(t\is_iterable(new \ArrayObject([1, 2])));
+        $this->assertTrue(t\is_iterable(new \ArrayIterator([1, 2])));
         $this->assertTrue(t\is_iterable(new \stdClass()));
         $this->assertFalse(t\is_iterable('a'));
     }
@@ -330,5 +363,46 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     public function testEnsuresOperatorIsValid()
     {
         t\operator_reducer('!');
+    }
+
+    public function testReducesToString()
+    {
+        $xf = t\map(function ($v) { return strtoupper($v); });
+        $data = ['a', 'b', 'c'];
+        $this->assertEquals('ABC', t\transduce($xf, t\string_reducer(), $data));
+    }
+
+    public function testReducesToAssoc()
+    {
+        $xf = t\map(function ($v) {
+            return [strtoupper($v[0]), $v[1]];
+        });
+        $data = ['a' => 1, 'b' => 2];
+        $result = t\transduce($xf, t\assoc_reducer(), t\assoc_iter($data));
+        $this->assertEquals(['A' => 1, 'B' => 2], $result);
+    }
+
+    public function testSplitsWords()
+    {
+        $this->assertEquals(
+            ['hi', 'there', 'guy!'],
+            t\seq(["hi\nthere", " guy!"], t\words())
+        );
+        $this->assertEquals(
+            ['hi', 'the', 're', 'guy', '!'],
+            t\seq(["hi\nthere", " guy!"],t\words(3))
+        );
+    }
+
+    public function testSplitsLines()
+    {
+        $this->assertEquals(
+            ['hi', 'there guy!'],
+            t\seq(["hi\nthere", " guy!"], t\lines())
+        );
+        $this->assertEquals(
+            ['hi', 'there', ' guy!'],
+            t\seq(["hi\nthere", " guy!"], t\lines(5))
+        );
     }
 }

@@ -1,5 +1,5 @@
 <?php
-namespace Transducers;
+namespace transducers;
 
 /**
  * Lazily applies the transducer $xf to the $input iterator.
@@ -73,7 +73,7 @@ function to_array($coll, callable $xf)
  */
 function to_assoc($coll, callable $xf)
 {
-    return transduce($xf, assoc_reducer(), indexed_iter($coll), []);
+    return transduce($xf, assoc_reducer(), assoc_iter($coll), []);
 }
 
 /**
@@ -138,11 +138,13 @@ function seq($coll, callable $xf)
         reset($coll);
         return key($coll) === 0
             ? transduce($xf, array_reducer(), $coll, [])
-            : transduce($xf, assoc_reducer(), indexed_iter($coll), []);
+            : transduce($xf, assoc_reducer(), assoc_iter($coll), []);
     } elseif ($coll instanceof \Iterator) {
         return to_iter($coll, $xf);
     } elseif (is_resource($coll)) {
-        return transduce($xf, stream_reducer(), stream_iter($coll));
+        \transducers\streams\register_stream_filter();
+        stream_filter_append($coll, 'transducer', STREAM_FILTER_READ, $xf);
+        return $coll;
     } elseif (is_string($coll)) {
         return transduce($xf, string_reducer(), str_split($coll));
     }
@@ -246,25 +248,25 @@ function remove(callable $pred)
 /**
  * Concatenates items from nested lists.
  *
+ * @param array $xf Reducing function array.
+ *
  * @return callable
  */
-function cat()
+function cat(array $xf)
 {
-    return function (array $xf) {
-        return [
-            'init'   => $xf['init'],
-            'result' => $xf['result'],
-            'step'   => function ($result, $input) use ($xf) {
-                if (!is_iterable($input)) {
-                    return $xf['step']($result, $input);
-                }
-                foreach ((array) $input as $value) {
-                    $result = $xf['step']($result, $value);
-                }
-                return $result;
+    return [
+        'init'   => $xf['init'],
+        'result' => $xf['result'],
+        'step'   => function ($result, $input) use ($xf) {
+            if (!is_iterable($input)) {
+                return $xf['step']($result, $input);
             }
-        ];
-    };
+            foreach ($input as $value) {
+                $result = $xf['step']($result, $value);
+            }
+            return $result;
+        }
+    ];
 }
 
 /**
@@ -277,7 +279,7 @@ function cat()
  */
 function mapcat(callable $f)
 {
-    return comp(map($f), cat());
+    return comp(map($f), 'transducers\cat');
 }
 
 /**
@@ -320,7 +322,10 @@ function partition($size)
         return [
             'init' => $xf['init'],
             'result' => function ($result) use (&$buffer, $xf) {
-                return $buffer ? $xf['step']($result, $buffer) : $result;
+                if ($buffer) {
+                    $result = unreduced($xf['step']($result, $buffer));
+                }
+                return $xf['result']($result);
             },
             'step' => function ($result, $input) use ($xf, &$buffer, $size) {
                 $buffer[] = $input;
@@ -352,9 +357,10 @@ function partition_by(callable $pred)
             'init' => $xf['init'],
             'result' => function ($result) use (&$ctx, $xf) {
                 // Add any pending elements.
-                return empty($ctx['buffer'])
-                    ? $result
-                    : $xf['step']($result, $ctx['buffer']);
+                if (!empty($ctx['buffer'])) {
+                    $result = unreduced($xf['step']($result, $ctx['buffer']));
+                }
+                return $xf['result']($result);
             },
             'step' => function ($result, $input) use ($xf, &$ctx, $pred) {
                 $test = $pred($input);
@@ -665,138 +671,78 @@ function tap(callable $interceptor)
     };
 }
 
-//-----------------------------------------------------------------------------
-// Reducing function arrays
-//-----------------------------------------------------------------------------
-
 /**
- * Creates a reducing function array that appends values to an array or object
- * that implements {@see ArrayAccess}.
+ * Splits the input each time a character is matched. Will only buffer up to
+ * $maxBuffer before flushing.
  *
- * @return array Returns a reducing function array.
+ * @param array $chars     Characters to split on.
+ * @param int   $maxBuffer Maximum buffer size. Defaults to 10MB.
+ *
+ * @return callable
  */
-function array_reducer()
+function split(array $chars, $maxBuffer = 10240000)
 {
-    return [
-        'init'   => function () { return []; },
-        'result' => 'Transducers\identity',
-        'step'   => function ($result, $input) {
-            $result[] = $input;
-            return $result;
-        }
-    ];
+    $chars = array_fill_keys($chars, true);
+    return function (array $xf) use ($chars, $maxBuffer) {
+        $buffer = '';
+        return [
+            'init'   => $xf['init'],
+            'result' => function ($result) use (&$buffer, $xf) {
+                if (strlen($buffer)) {
+                    $result = unreduced($xf['step']($result, $buffer));
+                }
+                return $xf['result']($result);
+            },
+            'step' => function ($result, $input) use ($xf, $chars, $maxBuffer, &$buffer) {
+                $input = (string) $input;
+                for ($i = 0, $t = strlen($input); $i < $t; $i++) {
+                    $c = $input[$i];
+                    if (!isset($chars[$c])) {
+                        $buffer .= $c;
+                    }
+                    if (isset($chars[$c]) || strlen($buffer) >= $maxBuffer) {
+                        $data = $buffer;
+                        $buffer = '';
+                        $result = $xf['step']($result, $data);
+                    }
+                }
+                return $result;
+            }
+        ];
+    };
 }
 
 /**
- * Creates a hash map reducing function array that merges values into an
- * associative array.
+ * Splits the input by lines, and does not buffer more than $maxBuffer.
  *
- * This reducer assumes that the provided value is an array where the key is
- * in the first index and the value is in the second index.
+ * @param int    $maxBuffer Maximum buffer size. Defaults to 10MB.
  *
- * @return array Returns a reducing function array.
+ * @return callable
  */
-function assoc_reducer()
+function lines($maxBuffer = 10240000)
 {
-    return [
-        'init'   => function () { return []; },
-        'result' => 'Transducers\identity',
-        'step'   => function ($result, $input) {
-            $result[$input[0]] = $input[1];
-            return $result;
-        }
-    ];
+    return split([PHP_EOL], $maxBuffer);
 }
 
 /**
- * Creates a stream reducing function array for PHP stream resources.
+ * Splits inputs by words and does not buffer more than $maxBuffer before
+ * flushing.
  *
- * @return array Returns a reducing function array.
+ * @param int $maxBuffer Maximum buffer size. Defaults to 4096.
+ *
+ * @return callable
  */
-function stream_reducer()
+function words($maxBuffer = 4096)
 {
-    return [
-        'init'   => function () { return fopen('php://temp', 'w+'); },
-        'result' => 'Transducers\identity',
-        'step' => function ($result, $input) {
-            fwrite($result, $input);
-            return $result;
-        }
-    ];
-}
-
-/**
- * Creates a string reducing function array that concatenates values into a
- * string.
- *
- * @param string $joiner Optional string to concatenate between each value.
- *
- * @return array Returns a reducing function array.
- */
-function string_reducer($joiner = '')
-{
-    return [
-        'init'   => function () { return ''; },
-        'result' => 'Transducers\identity',
-        'step'   => function ($r, $x) use ($joiner) {
-            return $r . $joiner . $x;
-        }
-    ];
-}
-
-/**
- * Creates a reducing function array that uses the provided infix operator to
- * reduce the collection (i.e., $result <operator> $input).
- *
- * Supports: '.', '+', '-', '*', and '/' operators.
- *
- * @param string $operator Infix operator to use.
- *
- * @return array Returns a reducing function array.
- */
-function operator_reducer($operator)
-{
-    static $reducers;
-    if (!$reducers) {
-        $reducers = [
-            '.'  => function ($r, $x) { return $r . $x; },
-            '+'  => function ($r, $x) { return $r + $x; },
-            '-'  => function ($r, $x) { return $r - $x; },
-            '*'  => function ($r, $x) { return $r * $x; },
-            '/'  => function ($r, $x) { return $r / $x; }
+    static $boundary;
+    if (!$boundary) {
+        $boundary = [' ', "\f", "\n", "\r", "\t", "\v",
+            json_decode('\u00A0'),
+            json_decode('\u2028'),
+            json_decode('\u2029')
         ];
     }
-
-    if (!isset($reducers[$operator])) {
-        throw new \InvalidArgumentException("A reducer is not defined for {$operator}");
-    }
-
-    return [
-        'init'   => 'Transducers\identity',
-        'result' => 'Transducers\identity',
-        'step'   => $reducers[$operator]
-    ];
-}
-
-/**
- * Convenience function for creating a reducing function array.
- *
- * @param callable $step   Step function that accepts $accum, $input and
- *                         returns a new reduced value.
- * @param callable $init   Optional init function invoked with no argument to
- *                         initialize the reducing function.
- * @param callable $result Optional result function invoked with a single
- *                         argument that is expected to return a result.
- *
- * @return array Returns a reducing function array.
- */
-function create_reducer(callable $step, callable $init = null, callable $result = null)
-{
-    return [
-        'init'   => $init ?: function () {},
-        'result' => $result ?: 'Transducers\identity',
-        'step'   => $step
-    ];
+    return split($boundary, $maxBuffer);
 }
 
 //-----------------------------------------------------------------------------
@@ -851,7 +797,7 @@ function reduce(callable $fn, $coll, $accum = null)
  * containing the [key, value]. When a stream is provided, an iterator is
  * returned that yields bytes from the stream. When an iterator is provided,
  * it is returned as-is. To force an iterator to be an indexed iterator, you
- * must use the indexed_iter() function.
+ * must use the assoc_iter() function.
  *
  * @param array|\Iterator|resource $iterable Data to convert to a sequence.
  *
@@ -862,7 +808,7 @@ function vec($iterable)
 {
     if (is_array($iterable)) {
         reset($iterable);
-        return key($iterable) === 0 ? $iterable : indexed_iter($iterable);
+        return key($iterable) === 0 ? $iterable : assoc_iter($iterable);
     } elseif ($iterable instanceof \Iterator) {
         return $iterable;
     } elseif (is_resource($iterable)) {
@@ -887,6 +833,18 @@ function ensure_reduced($r)
 }
 
 /**
+ * Unwraps a reduced variable if necessary.
+ *
+ * @param mixed|Reduced $r Value to unwrap if needed.
+ *
+ * @return mixed
+ */
+function unreduced($r)
+{
+    return $r instanceof Reduced ? $r->value : $r;
+}
+
+/**
  * Returns the provided value.
  *
  * @param mixed $value Value to return
@@ -906,7 +864,7 @@ function identity($value = null)
  *
  * @return \Iterator
  */
-function indexed_iter($iterable)
+function assoc_iter($iterable)
 {
     foreach ($iterable as $key => $value) {
         yield [$key, $value];

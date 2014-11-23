@@ -17,8 +17,8 @@ and this `video <https://www.youtube.com/watch?v=6mTbuzafcII>`_.
 You can transduce anything that you can iterate over in a foreach-loop (e.g.,
 arrays, ``\Iterator``, ``Traversable``, ``Generator``, etc.). Transducers can
 be applied **eagerly** using ``transduce()``, ``into()``, ``to_array()``,
-``to_assoc()``, ``to_string()``; and **lazily** using ``to_iter()`` or
-``seq()``.
+``to_assoc()``, ``to_string()``; and **lazily** using ``to_iter()``,
+``seq()``, or by applying a transducer stream filter.
 
 ::
 
@@ -30,7 +30,7 @@ Defining Transformations With Transducers
 Transducers compose with ordinary function composition. A transducer performs
 its operation before deciding whether and how many times to call the transducer
 it wraps. You can easily compose transducers to create transducer pipelines.
-The recommended way to compose transducers is with the ``Transducers\comp()``
+The recommended way to compose transducers is with the ``transducers\comp()``
 function:
 
 .. code-block:: php
@@ -148,68 +148,59 @@ Transform and reduce $coll by applying $xf($step)['step'] to each value.
 
     use Transducers as t;
 
-    $result = t\transduce(
-        t\comp(
-            t\cat(),
-            t\filter(function ($value) { return $value % 2; }),
-        ),
-        t\array_reducer(),
-        [[1, 2], [3, 4]]
+    $data = [[1, 2], [3, 4]];
+    $xf = t\comp(
+        t\flatten(),
+        t\filter(function ($value) { return $value % 2; }),
     );
+    $result = t\transduce($xf, t\array_reducer(), $data);
 
     // Contains: [1, 3]
 
 When using this function, you can use any of the built-in reducing function
 arrays as the ``$step`` argument:
 
-- ``Transducers\array_reducer()``: Creates a reducing function array that
+- ``transducers\array_reducer()``: Creates a reducing function array that
   appends values to an array.
 
   .. code-block:: php
 
-      $result = t\transduce(
-          t\cat(),
-          t\array_reducer(),
-          [[1, 2], [3, 4]]
-      );
+      $data = [[1, 2], [3, 4]];
+      $result = t\transduce(t\flatten(), t\array_reducer(), $data);
 
       // Results contains [1, 2, 3, 4]
 
-- ``Transducers\stream_reducer()``: Creates a reducing function array that
+- ``transducers\stream_reducer()``: Creates a reducing function array that
   writes values to a stream resource. If no ``$init`` value is provided when
   transducing then a PHP temp stream will be used.
 
   .. code-block:: php
 
-      $result = t\transduce(
-          t\cat(),
-          t\stream_reducer(),
-          [[1, 2], [3, 4]]
-      );
-
+      $data = [[1, 2], [3, 4]];
+      $result = t\transduce(t\flatten(), t\stream_reducer(), $data);
       fseek($result, 0);
       echo stream_get_contents($result);
       // Outputs: 1234
 
-- ``Transducers\string_reducer()``: Creates a reducing function array that
+- ``transducers\string_reducer()``: Creates a reducing function array that
   concatenates each value to a string.
 
   .. code-block:: php
 
-      $result = t\transduce(
-          t\cat(),
-          t\string_reducer('|'), // use an optional joiner
-          [[1, 2], [3, 4]]
-      );
+      $xf = t\flatten();
+      // use an optional joiner on the string reducer.
+      $reducer = t\string_reducer('|');
+      $data = [[1, 2], [3, 4]];
+      $result = t\transduce($xf, $reducer, $data);
 
       // Result is '1|2|3|4'
 
-- ``Transducers\assoc_reducer()``: Creates a reducing function array that adds
+- ``transducers\assoc_reducer()``: Creates a reducing function array that adds
   key value pairs to an associative array. Each value must be an array that
   contains the array key in the first element and the array value in the second
   element.
 
-- ``Transducers\create_reducer()``: Convenience function that can be used to
+- ``transducers\create_reducer()``: Convenience function that can be used to
   quickly create reducing function arrays. The first and only required argument
   is a step function that takes the accumulated result and the new value and
   returns a single result. The next, optional, argument is the init function
@@ -220,23 +211,23 @@ arrays as the ``$step`` argument:
   .. code-block:: php
 
       $result = t\transduce(
-          t\cat(),
+          t\flatten(),
           t\create_reducer(function ($r, $x) { return $r + $x; }),
           [[1, 2], [3, 4]]
       );
 
       // Result is equal to 10
 
-- ``Transducers\operator_reducer()``: Creates a reducing function array that
+- ``transducers\operator_reducer()``: Creates a reducing function array that
   uses the provided infix operator to reduce the collection (i.e.,
   $result <operator> $input). Supports: '.', '+', '-', '*', and '/' operators.
 
   .. code-block:: php
 
       $result = t\transduce(
-          t\cat()
+          t\flatten()
           t\operator_reducer('+'),
-          [[1, 2], [3, 4]]
+          [[1, 2], [[3], 4]]
       );
 
       // Result is equal to 10
@@ -262,8 +253,8 @@ writes.
 
     // Compose a transducer function.
     $transducer = t\comp(
-        // Remove one level of array nesting.
-        t\cat(),
+        // Remove a single level of nesting.
+        'transducers\cat',
         // Filter out even values.
         t\filter(function ($value) { return $value % 2; }),
         // Multiply each value by 2
@@ -411,6 +402,44 @@ Returns the same data type passed in as ``$coll`` with ``$xf`` applied.
     }));
     assert($result === ['A' => 1, 'B' => 2]);
 
+Stream Filter
+~~~~~~~~~~~~~
+
+You can apply transducers to PHP streams using a `stream filter <http://php.net/manual/en/stream.filters.php>`_.
+This library registers a ``transducers`` stream filter that can be appended or
+prepended to a PHP stream using the ``transducers\streams\append_filter()`` or
+``transducers\streams\prepend_filter()`` functions.
+
+.. code-block:: php
+
+    use transducers as t;
+
+    $f = fopen('php://temp', 'w+');
+    fwrite($f, 'testing. Can you hear me?');
+    rewind($f);
+
+    $xf = t\comp(
+        // Split by words
+        t\words(),
+        // Uppercase/lowercase every other word.
+        t\keep_indexed(function ($i, $v) {
+            return $i % 2 ? strtoupper($v) : strtolower($v);
+        }),
+        // Combine words back together into a string separated by ' '.
+        t\interpose(' ')
+    );
+
+    // Apply a transducer stream filter.
+    $filter = t\streams\append_filter($f, $xf, STREAM_FILTER_READ);
+    echo stream_get_contents($f);
+    // Be sure to remove the filter to flush out any buffers.
+    stream_filter_remove($filter);
+    echo stream_get_contents($f);
+
+    fclose($f);
+
+    // Echoes: "testing. CAN you HEAR me?"
+
 Available Transducers
 ---------------------
 
@@ -453,19 +482,22 @@ Removes anything from a sequence that satisfied ``$pred``.
     $data = [1, 2, 3, 4];
     $odd = function ($value) { return $value % 2; };
     $result = t\seq($data, t\remove($odd));
-    assert($result = [2, 4]);
+    assert($result == [2, 4]);
 
 cat()
 ~~~~~
 
 ``function cat()``
 
-Concatenates items from nested lists.
+Transducer that concatenates items from nested lists. Note that ``cat()`` is
+used differently than other transducers: you use cat using the string value of
+the function name (i.e., ``'transducers\cat'``);
 
 .. code-block:: php
 
+    $xf = 'transducers\cat';
     $data = [[1, 2], [3], [], [4, 5]];
-    $result = t\seq($data, t\cat());
+    $result = t\seq($data, $xf);
     assert($result == [1, 2, 3, 4, 5]);
 
 mapcat()
@@ -494,7 +526,8 @@ a single, flat sequence.
 .. code-block:: php
 
     $data = [[1, 2], 3, [4, new ArrayObject([5, 6])]];
-    $result = t\to_array($data, t\flatten());
+    $xf = t\flatten();
+    $result = t\to_array($data, $xf);
     assert($result == [1, 2, 3, 4, 5, 6]);
 
 partition()
@@ -720,7 +753,47 @@ Trim out all falsey values.
 .. code-block:: php
 
     $result = t\seq(['a', true, false, 'b', 0], t\compact());
-    assert($result = ['a', true, 'b']);
+    assert($result == ['a', true, 'b']);
+
+words()
+~~~~~~~
+
+``function words($maxBuffer = 4096)``
+
+Splits the input by words. You can provide an optional max buffer length that
+will ensure the buffer size used to find words is never exceeded. The default
+max buffer length is 4096. To use an unbounded buffer, provide ``INF``.
+
+.. code-block:: php
+
+    $xf = t\words();
+    $data = ['Hi. This is a test.'];
+    $result = t\seq($data, $xf);
+    assert($result == ['Hi.', 'This', 'is', 'a', 'test.']);
+
+    $data = ['Hi. ', 'This is',  ' a test.'];
+    $result = t\seq($data, $xf);
+    assert($result == ['Hi.', 'This', 'is', 'a', 'test.']);
+
+lines()
+~~~~~~~
+
+``function lines($maxBuffer = 10240000)``
+
+Splits the input by lines. You can provide an optional max buffer length that
+will ensure the buffer size used to find lines is never exceeded. The default
+max buffer length is 10MB. To use an unbounded buffer, provide ``INF``.
+
+.. code-block:: php
+
+    $xf = t\lines();
+    $data = ["Hi.\nThis is a test."];
+    $result = t\seq($data, $xf);
+    assert($result == ['Hi.', 'This is a test.']);
+
+    $data = ["Hi.\n", 'This is',  ' a test.', "\nHear me?"];
+    $result = t\seq($data, $xf);
+    assert($result == ['Hi.', 'This is a test.', 'Hear me?']);
 
 Utility Functions
 -----------------
@@ -732,13 +805,13 @@ identity()
 
 Returns the provided value. This is useful for writing reducing function arrays
 that do not need to modify an 'init' or 'result' function. In these cases, you
-can simply use the string ``'Transducers\identity'`` as the 'init' or 'result'
+can simply use the string ``'transducers\identity'`` as the 'init' or 'result'
 function to continue to proxy to further reducers.
 
-indexed_iter()
-~~~~~~~~~~~~~~
+assoc_iter()
+~~~~~~~~~~~~
 
-``function indexed_iter($iterable)``
+``function assoc_iter($iterable)``
 
 Converts an iterable into an indexed array iterator where each value yielded
 is an array containing the key followed by the value.
@@ -746,7 +819,7 @@ is an array containing the key followed by the value.
 .. code-block:: php
 
     $data = ['a' => 1, 'b' => 2];
-    assert(t\indexed_iter($data) == [['a', 1], ['b', 2]];
+    assert(t\assoc_iter($data) == [['a', 1], ['b', 2]];
 
 This can be combined with the ``assoc_reducer()`` to generate associative
 arrays.
@@ -756,7 +829,7 @@ arrays.
     $result = t\transduce(
         t\map(function ($v) { return [$v[0], $v[1] + 1]; },
         t\assoc(),
-        t\indexed_iter(['a' => 1, 'b' => 2])
+        t\assoc_iter(['a' => 1, 'b' => 2])
     );
 
     assert($result == ['a' => 2, 'b' => 3]);
