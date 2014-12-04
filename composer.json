@@ -15,6 +15,6 @@
     "phpunit/phpunit": "~4.0"
   },
   "autoload": {
-    "files": ["src/transducers.php", "src/streams.php", "src/reducers.php"]
+    "files": ["src/transducers.php"]
   }
 }

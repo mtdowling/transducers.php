@@ -407,8 +407,8 @@ Stream Filter
 
 You can apply transducers to PHP streams using a `stream filter <http://php.net/manual/en/stream.filters.php>`_.
 This library registers a ``transducers`` stream filter that can be appended or
-prepended to a PHP stream using the ``transducers\streams\append_filter()`` or
-``transducers\streams\prepend_filter()`` functions.
+prepended to a PHP stream using the ``transducers\append_stream_filter()`` or
+``transducers\prepend_stream_filter()`` functions.
 
 .. code-block:: php
 
@@ -430,7 +430,7 @@ prepended to a PHP stream using the ``transducers\streams\append_filter()`` or
     );
 
     // Apply a transducer stream filter.
-    $filter = t\streams\append_filter($f, $xf, STREAM_FILTER_READ);
+    $filter = t\append_stream_filter($f, $xf, STREAM_FILTER_READ);
     echo stream_get_contents($f);
     // Be sure to remove the filter to flush out any buffers.
     stream_filter_remove($filter);

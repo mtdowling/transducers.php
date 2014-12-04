@@ -142,7 +142,7 @@ function seq($coll, callable $xf)
     } elseif ($coll instanceof \Iterator) {
         return to_iter($coll, $xf);
     } elseif (is_resource($coll)) {
-        \transducers\streams\register_stream_filter();
+        register_stream_filter();
         stream_filter_append($coll, 'transducer', STREAM_FILTER_READ, $xf);
         return $coll;
     } elseif (is_string($coll)) {
@@ -746,6 +746,140 @@ function words($maxBuffer = 4096)
 }
 
 //-----------------------------------------------------------------------------
+// Reducers
+//-----------------------------------------------------------------------------
+
+/**
+ * Creates a reducing function array that appends values to an array or object
+ * that implements {@see ArrayAccess}.
+ *
+ * @return array Returns a reducing function array.
+ */
+function array_reducer()
+{
+    return [
+        'init'   => function () { return []; },
+        'result' => 'Transducers\identity',
+        'step'   => function ($result, $input) {
+            $result[] = $input;
+            return $result;
+        }
+    ];
+}
+
+/**
+ * Creates a hash map reducing function array that merges values into an
+ * associative array.
+ *
+ * This reducer assumes that the provided value is an array where the key is
+ * in the first index and the value is in the second index.
+ *
+ * @return array Returns a reducing function array.
+ */
+function assoc_reducer()
+{
+    return [
+        'init'   => function () { return []; },
+        'result' => 'Transducers\identity',
+        'step'   => function ($result, $input) {
+            $result[$input[0]] = $input[1];
+            return $result;
+        }
+    ];
+}
+
+/**
+ * Creates a stream reducing function array for PHP stream resources.
+ *
+ * @return array Returns a reducing function array.
+ */
+function stream_reducer()
+{
+    return [
+        'init'   => function () { return fopen('php://temp', 'w+'); },
+        'result' => 'Transducers\identity',
+        'step' => function ($result, $input) {
+            fwrite($result, $input);
+            return $result;
+        }
+    ];
+}
+
+/**
+ * Creates a string reducing function array that concatenates values into a
+ * string.
+ *
+ * @param string $joiner Optional string to concatenate between each value.
+ *
+ * @return array Returns a reducing function array.
+ */
+function string_reducer($joiner = '')
+{
+    return [
+        'init'   => function () { return ''; },
+        'result' => 'Transducers\identity',
+        'step'   => function ($r, $x) use ($joiner) {
+            return $r . $joiner . $x;
+        }
+    ];
+}
+
+/**
+ * Creates a reducing function array that uses the provided infix operator to
+ * reduce the collection (i.e., $result <operator> $input).
+ *
+ * Supports: '.', '+', '-', '*', and '/' operators.
+ *
+ * @param string $operator Infix operator to use.
+ *
+ * @return array Returns a reducing function array.
+ */
+function operator_reducer($operator)
+{
+    static $reducers;
+    if (!$reducers) {
+        $reducers = [
+            '.'  => function ($r, $x) { return $r . $x; },
+            '+'  => function ($r, $x) { return $r + $x; },
+            '-'  => function ($r, $x) { return $r - $x; },
+            '*'  => function ($r, $x) { return $r * $x; },
+            '/'  => function ($r, $x) { return $r / $x; }
+        ];
+    }
+
+    if (!isset($reducers[$operator])) {
+        throw new \InvalidArgumentException("A reducer is not defined for {$operator}");
+    }
+
+    return [
+        'init'   => 'Transducers\identity',
+        'result' => 'Transducers\identity',
+        'step'   => $reducers[$operator]
+    ];
+}
+
+/**
+ * Convenience function for creating a reducing function array.
+ *
+ * @param callable $step   Step function that accepts $accum, $input and
+ *                         returns a new reduced value.
+ * @param callable $init   Optional init function invoked with no argument to
+ *                         initialize the reducing function.
+ * @param callable $result Optional result function invoked with a single
+ *                         argument that is expected to return a result.
+ *
+ * @return array Returns a reducing function array.
+ */
+function create_reducer(callable $step, callable $init = null, callable $result = null)
+{
+    return [
+        'init'   => $init ?: function () {},
+        'result' => $result ?: 'Transducers\identity',
+        'step'   => $step
+    ];
+}
+
+//-----------------------------------------------------------------------------
 // Utility functions
 //-----------------------------------------------------------------------------
 
@@ -934,5 +1068,111 @@ class Reduced
     public function __construct($value)
     {
         $this->value = $value;
+    }
+}
+
+//-----------------------------------------------------------------------------
+// Streams
+//-----------------------------------------------------------------------------
+
+/**
+ * Appends a transducer filter to an open stream.
+ *
+ * @param resource $stream    Stream to add a filter to.
+ * @param callable $xf        Transducer function.
+ * @param int      $readWrite Constants available on PHP's stream_filter_append
+ *
+ * @return resource Returns the appended stream filter resource.
+ */
+function append_stream_filter($stream, callable $xf, $readWrite)
+{
+    register_stream_filter();
+    return stream_filter_append($stream, 'transducer', $readWrite, $xf);
+}
+
+/**
+ * Prepends a transducer filter to an open stream.
+ *
+ * @param resource $stream    Stream to add a filter to.
+ * @param callable $xf        Transducer function.
+ * @param int      $readWrite Constants available on PHP's stream_filter_prepend
+ *
+ * @return resource Returns the appended stream filter resource.
+ */
+function prepend_stream_filter($stream, callable $xf, $readWrite)
+{
+    register_stream_filter();
+    return stream_filter_prepend($stream, 'transducer', $readWrite, $xf);
+}
+
+/**
+ * Registers the 'transducer' stream filter.
+ */
+function register_stream_filter()
+{
+    stream_filter_register('transducer', 'transducers\StreamFilter');
+}
+
+/**
+ * Implements transducer functionality in PHP stream filters.
+ */
+class StreamFilter extends \php_user_filter
+{
+    private $xf;
+    private $buffer;
+    private $bufferHandle;
+
+    public function onCreate()
+    {
+        if (!is_callable($this->params)) {
+            trigger_error('Filter params arg must be a transducer function');
+            return false;
+        }
+
+        $reducer = create_reducer(function($r, $x) { $this->buffer .= $x; });
+        $this->xf = call_user_func($this->params, $reducer);
+        return true;
+    }
+
+    public function onClose()
+    {
+        if (is_resource($this->bufferHandle)) {
+            fclose($this->bufferHandle);
+        }
+    }
+
+    function filter($in, $out, &$consumed, $closing)
+    {
+        $result = '';
+
+        while ($bucket = stream_bucket_make_writeable($in)) {
+            // Stream each byte through the step function.
+            for ($i = 0, $t = strlen($bucket->data); $i < $t; $i++) {
+                $consumed++;
+                $result = $this->xf['step']($result, $bucket->data[$i]);
+                if ($result instanceof Reduced) {
+                    break;
+                }
+            }
+            // A transducer may choose to not use the provided input.
+            if (strlen($this->buffer)) {
+                $bucket->data = $this->buffer;
+                $this->buffer = '';
+                stream_bucket_append($out, $bucket);
+            }
+        }
+
+        // When closing, we allow the $xf['result'] function to add more data.
+        if ($closing) {
+            $this->xf['result']('');
+            if (strlen($this->buffer)) {
+                // The buffer is only needed when the result fn calls the step.
+                $this->bufferHandle = fopen('php://memory', 'w+');
+                $bucket = stream_bucket_new($this->bufferHandle, $this->buffer);
+                stream_bucket_append($out, $bucket);
+            }
+        }
+
+        return PSFS_PASS_ON;
     }
 }
