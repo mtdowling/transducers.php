@@ -232,17 +232,7 @@ function filter(callable $pred)
  */
 function remove(callable $pred)
 {
-    return function (array $xf) use ($pred) {
-        return [
-            'init'   => $xf['init'],
-            'result' => $xf['result'],
-            'step'   => function ($result, $input) use ($pred, $xf) {
-                return !$pred($input)
-                    ? $xf['step']($result, $input)
-                    : $result;
-            }
-        ];
-    };
+    return filter(function ($x) use ($pred) { return !($pred($x)); });
 }
 
 /**
