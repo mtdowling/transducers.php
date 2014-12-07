@@ -312,7 +312,8 @@ to_array()
 ``function to_array($iterable, callable $xf)``
 
 Converts a value to an array and applies a transducer function. ``$iterable``
-is passed through ``vec()`` in order to convert the input value into an array.
+is passed through ``to_traversable()`` in order to convert the input value into
+an array.
 
 .. code-block:: php
 
@@ -351,8 +352,8 @@ to_string()
 ``function to_string($iterable, callable $xf)``
 
 Converts a value to a string and applies a transducer function to each
-character. ``$iterable`` is passed through ``vec()`` in order to convert the
-input value into an array.
+character. ``$iterable`` is passed through ``to_traversable()`` in order to
+convert the input value into an array.
 
 .. code-block:: php
 
@@ -930,14 +931,14 @@ Creates an iterator that reads from a stream using the given ``$size`` argument.
     }
 
 
-vec()
-~~~~~
+to_traversable()
+~~~~~~~~~~~~~~~~
 
-``function vec($iterable)``
+``function to_traversable($value)``
 
-Converts an input value into something this is iterable (e.g., an array or
-``\Iterator``). This function accepts arrays, ``\Iterators``, PHP streams, and
-strings. Arrays pass through unchanged. Associative arrays are returned as
+Converts an input value into something this is traversable (e.g., an array or
+``\Iterator``). This function accepts arrays, ``\Traversable``, PHP streams,
+and strings. Arrays pass through unchanged. Associative arrays are returned as
 iterators that yield arrays where each value is an array that contains the key
 of the array in the first element and the value of the array in the second
 element. Iterators are returned as-is. Strings are split by character using
@@ -945,14 +946,14 @@ element. Iterators are returned as-is. Strings are split by character using
 byte at a time.
 
 
-is_iterable()
-~~~~~~~~~~~~~
+is_traversable()
+~~~~~~~~~~~~~~~~
 
-``function is_iterable($coll)``
+``function is_traversable($coll)``
 
-Returns true if the provided $coll is something that can be iterated in a
-foreach loop. This function treats arrays, instances of \Traversable, and
-stdClass as iterable.
+Returns true if the provided $coll is something that can be traversed in a
+foreach loop. This function treats arrays, instances of ``\Traversable``, and
+``stdClass`` as iterable.
 
 
 reduce()

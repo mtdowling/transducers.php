@@ -54,7 +54,7 @@ function to_iter($iterable, callable $xf)
  */
 function to_array($coll, callable $xf)
 {
-    return transduce($xf, array_reducer(), vec($coll), []);
+    return transduce($xf, array_reducer(), to_traversable($coll), []);
 }
 
 /**
@@ -87,7 +87,7 @@ function to_assoc($coll, callable $xf)
  */
 function to_string($coll, callable $xf)
 {
-    return transduce($xf, string_reducer(), vec($coll), '');
+    return transduce($xf, string_reducer(), to_traversable($coll), '');
 }
 
 /**
@@ -270,7 +270,7 @@ function cat(array $xf)
         'init'   => $xf['init'],
         'result' => $xf['result'],
         'step'   => function ($result, $input) use ($xf) {
-            if (!is_iterable($input)) {
+            if (!is_traversable($input)) {
                 return $xf['step']($result, $input);
             }
             foreach ($input as $value) {
@@ -307,7 +307,7 @@ function flatten()
             'init'   => $xf['init'],
             'result' => $xf['result'],
             'step'   => function ($result, $input) use ($xf) {
-                if (!is_iterable($input)) {
+                if (!is_traversable($input)) {
                     return $xf['step']($result, $input);
                 }
                 $it = new \RecursiveIteratorIterator(new \RecursiveArrayIterator($input));
@@ -936,7 +936,7 @@ function reduce(callable $fn, $coll, $accum = null)
 }
 
 /**
- * Converts an iterable into a sequence of data.
+ * Converts a value into a sequence of data that can be foreach'ed
  *
  * When provided an indexed array, the array is returned as-is. When provided
  * an associative array, an iterator is returned where each value is an array
@@ -945,25 +945,44 @@ function reduce(callable $fn, $coll, $accum = null)
  * it is returned as-is. To force an iterator to be an indexed iterator, you
  * must use the assoc_iter() function.
  *
- * @param array|\Iterator|resource $iterable Data to convert to a sequence.
+ * @param array|\Iterator|resource $value Data to convert to a sequence.
  *
  * @return array|\Iterator
  * @throws \InvalidArgumentException
  */
-function vec($iterable)
+function to_traversable($value)
 {
-    if (is_array($iterable)) {
-        reset($iterable);
-        return key($iterable) === 0 ? $iterable : assoc_iter($iterable);
-    } elseif ($iterable instanceof \Iterator) {
-        return $iterable;
-    } elseif (is_resource($iterable)) {
-        return stream_iter($iterable);
-    } elseif (is_string($iterable)) {
-        return str_split($iterable);
+    switch (gettype($value)) {
+        case 'array':
+            reset($value);
+            return key($value) === 0 ? $value : assoc_iter($value);
+        case 'object':
+            if ($value instanceof \Traversable || $value instanceof \stdClass) {
+                return $value;
+            }
+            break;
+        case 'string': return str_split($value);
+        case 'resource': return stream_iter($value);
     }
+    throw type_error('to_traversable', $value);
+}
 
-    throw type_error('vec', $iterable);
+/**
+ * Returns true if the provided $coll is something that can be iterated in a
+ * foreach loop.
+ *
+ * This function treats arrays, instances of \Traversable, and stdClass as
+ * iterable.
+ *
+ * @param mixed $value
+ *
+ * @return bool
+ */
+function is_traversable($value)
+{
+    return is_array($value)
+        || $value instanceof \Traversable
+        || $value instanceof \stdClass;
 }
 
 /**
@@ -1033,24 +1052,6 @@ function stream_iter($stream, $size = 1)
 }
 
 /**
- * Returns true if the provided $coll is something that can be iterated in a
- * foreach loop.
- *
- * This function treats arrays, instances of \Traversable, and stdClass as
- * iterable.
- *
- * @param mixed $coll
- *
- * @return bool
- */
-function is_iterable($coll)
-{
-    return is_array($coll)
-        || $coll instanceof \Traversable
-        || $coll instanceof \stdClass;
-}
-
-/**
  * @param string $name Name of the function that was called.
  * @param mixed  $coll Data that was provided.
  *
@@ -1059,14 +1060,13 @@ function is_iterable($coll)
 function type_error($name, $coll)
 {
     if (is_object($coll)) {
-        $description = get_class($coll);
+        $desc = get_class($coll);
     } else {
         ob_start();
         var_dump($coll);
-        $description = ob_end_clean();
+        $desc = ob_get_clean();
     }
-    return new \InvalidArgumentException("Do not know how to $name collection: "
-        . $description);
+    return new \InvalidArgumentException("Do not know how to $name $desc");
 }
 
 //-----------------------------------------------------------------------------

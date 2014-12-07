@@ -81,7 +81,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @expectedExceptionMessage Do not know how to seq collection
+     * @expectedExceptionMessage Do not know how to seq bool(false)
      * @expectedException \InvalidArgumentException
      */
     public function testSeqThrowsWhenUnknownDataType()
@@ -258,40 +258,45 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals([[0, 0], [1, false], [2, null], [3, true]], $calls);
     }
 
-    public function testVecReturnsArrays()
+    public function testToTraversableReturnsArrays()
     {
-        $this->assertEquals([1, 2, 3], t\vec([1, 2, 3]));
-        $this->assertEquals([['a', 1], ['b', 2]], iterator_to_array(t\vec(['a' => 1, 'b' => 2])));
+        $this->assertEquals([1, 2, 3], t\to_traversable([1, 2, 3]));
+        $this->assertEquals(
+            [['a', 1], ['b', 2]],
+            iterator_to_array(t\to_traversable(['a' => 1, 'b' => 2]))
+        );
     }
 
-    public function testVecReturnsStreamsIter()
+    public function testToTraversableReturnsStreamsIter()
     {
         $s = fopen('php://temp', 'w+');
         fwrite($s, 'foo');
         rewind($s);
-        $this->assertEquals(['f', 'o','o'], iterator_to_array(t\vec($s)));
+        $this->assertEquals(
+            ['f', 'o','o'],
+            iterator_to_array(t\to_traversable($s))
+        );
         fclose($s);
     }
 
-    public function testVecReturnsStringAsArray()
+    public function testToTraversableReturnsStringAsArray()
     {
-        $this->assertEquals(['f', 'o','o'], t\vec('foo'));
+        $this->assertEquals(['f', 'o','o'], t\to_traversable('foo'));
     }
 
-    public function testVecReturnsIteratorAsIs()
+    public function testToTraversableReturnsIteratorAsIs()
     {
         $i = new \ArrayIterator([1, 2]);
-        $this->assertSame($i, t\vec($i));
+        $this->assertSame($i, t\to_traversable($i));
     }
 
     /**
      * @expectedException \InvalidArgumentException
-     * @expectedExceptionMessage Do not know how to vec collection: stdClass
+     * @expectedExceptionMessage Do not know how to to_traversable bool(false)
      */
-    public function testVecEnsuresItCanHandleType()
+    public function testToTraversableEnsuresItCanHandleType()
     {
-        $o = new \stdClass();
-        t\vec($o);
+        t\to_traversable(false);
     }
 
     public function testConvertsToArray()
@@ -312,7 +317,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @expectedException \InvalidArgumentException
-     * @expectedExceptionMessage Do not know how to vec collection: 1
+     * @expectedExceptionMessage Do not know how to to_traversable int(1)
      */
     public function testConvertsToArrayThrowsWhenInvalidType()
     {
@@ -336,13 +341,13 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('foo', $t['result']('foo'));
     }
 
-    public function testChecksIfIterable()
+    public function testChecksIfTraversable()
     {
-        $this->assertTrue(t\is_iterable([1, 2]));
-        $this->assertTrue(t\is_iterable(new \ArrayObject([1, 2])));
-        $this->assertTrue(t\is_iterable(new \ArrayIterator([1, 2])));
-        $this->assertTrue(t\is_iterable(new \stdClass()));
-        $this->assertFalse(t\is_iterable('a'));
+        $this->assertTrue(t\is_traversable([1, 2]));
+        $this->assertTrue(t\is_traversable(new \ArrayObject([1, 2])));
+        $this->assertTrue(t\is_traversable(new \ArrayIterator([1, 2])));
+        $this->assertTrue(t\is_traversable(new \stdClass()));
+        $this->assertFalse(t\is_traversable('a'));
     }
 
     public function testHasOperatorReducer()
