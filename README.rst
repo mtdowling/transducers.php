@@ -24,6 +24,7 @@ be applied **eagerly** using ``transduce()``, ``into()``, ``to_array()``,
 
     composer.phar require mtdowling/transducers
 
+
 Defining Transformations With Transducers
 -----------------------------------------
 
@@ -57,6 +58,7 @@ transducer application functions, including ``seq()``.
 
     // Contains: [5, 7, 9]
 
+
 Transducers
 -----------
 
@@ -86,6 +88,7 @@ Here's how to create a transducer that adds ``$n`` to each value:
     // Contains: 2, 3, 4
 
 .. _reducing-link:
+
 
 Reducing Function Array
 -----------------------
@@ -122,11 +125,13 @@ Reducing function arrays are PHP associative arrays that contain a 'init',
 |        |                         | function exactly once.                   |
 +--------+-------------------------+------------------------------------------+
 
+
 Using Transducers
 -----------------
 
 Transducers can be used in any number of ways. This library provides several
 methods that can be used to apply transducers.
+
 
 transduce()
 ~~~~~~~~~~~
@@ -232,6 +237,7 @@ arrays as the ``$step`` argument:
 
       // Result is equal to 10
 
+
 into()
 ~~~~~~
 
@@ -268,6 +274,7 @@ writes.
     // Eagerly pour the transformed data, [2, 6, 10, 14], into an array.
     $result = t\into([], $data, $transducer);
 
+
 to_iter()
 ~~~~~~~~~
 
@@ -298,6 +305,7 @@ or when you want operations to occur only as needed.
         echo $value;
     }
 
+
 to_array()
 ~~~~~~~~~~
 
@@ -317,6 +325,7 @@ is passed through ``vec()`` in order to convert the input value into an array.
 
     // Contains: ['A', 'B', 'C']
 
+
 to_assoc()
 ~~~~~~~~~~
 
@@ -335,6 +344,7 @@ array key in the first element and the array value in the second.
 
     assert($result == ['a' => 2, 'b' => 3]);
 
+
 to_string()
 ~~~~~~~~~~~
 
@@ -352,6 +362,7 @@ input value into an array.
     );
 
     // Outputs: ABC
+
 
 seq()
 ~~~~~
@@ -402,6 +413,27 @@ Returns the same data type passed in as ``$coll`` with ``$xf`` applied.
     }));
     assert($result === ['A' => 1, 'B' => 2]);
 
+
+to_fn()
+~~~~~~~
+
+``function to_fn(callable $xf, callable|array $builder = null)``
+
+Convert a transducer into a function that can be used with existing reduce
+implementations (e.g., array_reduce).
+
+.. code-block:: php
+
+    $xf = t\map(function ($x) { return $x + 1; });
+    $fn = t\to_fn($xf); // $builder is optional
+    $result = array_reduce([1, 2, 3], $fn);
+    assert($result == [2, 3, 4]);
+
+    $fn = t\to_fn($xf, t\string_reducer());
+    $result = array_reduce([1, 2, 3], $fn);
+    assert($result == '234');
+
+
 Stream Filter
 ~~~~~~~~~~~~~
 
@@ -440,8 +472,10 @@ prepended to a PHP stream using the ``transducers\append_stream_filter()`` or
 
     // Echoes: "testing. CAN you HEAR me?"
 
+
 Available Transducers
 ---------------------
+
 
 map()
 ~~~~~
@@ -455,6 +489,7 @@ Applies a map function ``$f`` to each value in a collection.
     $data = ['a', 'b', 'c'];
     $xf = t\map(function ($value) { return strtoupper($value); });
     assert(t\seq($data, $xf) == ['A', 'B', 'C']);
+
 
 filter()
 ~~~~~~~~
@@ -470,6 +505,7 @@ Filters values that do not satisfy the predicate function ``$pred``.
     $result = t\seq($data, t\filter($odd));
     assert($result == [1, 3]);
 
+
 remove()
 ~~~~~~~~
 
@@ -483,6 +519,7 @@ Removes anything from a sequence that satisfied ``$pred``.
     $odd = function ($value) { return $value % 2; };
     $result = t\seq($data, t\remove($odd));
     assert($result == [2, 4]);
+
 
 cat()
 ~~~~~
@@ -500,6 +537,7 @@ the function name (i.e., ``'transducers\cat'``);
     $result = t\seq($data, $xf);
     assert($result == [1, 2, 3, 4, 5]);
 
+
 mapcat()
 ~~~~~~~~
 
@@ -514,6 +552,7 @@ nesting.
     $xf = t\mapcat(function ($value) { return array_sum($value); });
     $result = t\seq($data, $xf);
     assert($result == [3, 3, 0, 9]);
+
 
 flatten()
 ~~~~~~~~~
@@ -530,6 +569,7 @@ a single, flat sequence.
     $result = t\to_array($data, $xf);
     assert($result == [1, 2, 3, 4, 5, 6]);
 
+
 partition()
 ~~~~~~~~~~~
 
@@ -543,6 +583,7 @@ array completes, the array will be stepped with any remaining items.
     $data = [1, 2, 3, 4, 5];
     $result = t\seq($data, t\partition(2));
     assert($result == [[1, 2], [3, 4], [5]]);
+
 
 partition_by()
 ~~~~~~~~~~~~~~
@@ -565,6 +606,7 @@ present list.
         [['c', 4]]
     ]);
 
+
 take()
 ~~~~~~
 
@@ -577,6 +619,7 @@ Takes ``$n`` number of values from a collection.
     $data = [1, 2, 3, 4, 5];
     $result = t\seq($data, t\take(2));
     assert($result == [1, 2]);
+
 
 take_while()
 ~~~~~~~~~~~~
@@ -591,6 +634,7 @@ Takes from a collection while the predicate function ``$pred`` returns true.
     $xf = t\take_while(function ($value) { return $value < 4; });
     $result = t\seq($data, $xf);
     assert($result == [1, 2, 3]);
+
 
 take_nth()
 ~~~~~~~~~~
@@ -618,6 +662,7 @@ Drops ``$n`` items from the beginning of the input sequence.
     $result = t\seq($data, t\drop(2));
     assert($result == [3, 4, 5]);
 
+
 drop_while()
 ~~~~~~~~~~~~
 
@@ -632,6 +677,7 @@ returns true.
     $xf = t\drop_while(function ($value) { return $value < 3; });
     $result = t\seq($data, $xf);
     assert($result == [3, 4, 5]);
+
 
 replace()
 ~~~~~~~~~
@@ -649,6 +695,7 @@ elements equal to a key in ``$smap`` are replaced with the corresponding
     $result = t\seq($data, $xf);
     assert($result == ['You', 'there', 'guy', '?']);
 
+
 keep()
 ~~~~~~
 
@@ -664,6 +711,7 @@ Keeps ``$f`` items for which ``$f`` does not return null.
     );
 
     assert($result == [0, false, true]);
+
 
 keep_indexed()
 ~~~~~~~~~~~~~~
@@ -686,6 +734,7 @@ Returns a sequence of the non-null results of ``$f($index, $input)``.
 
     // Will echo: 0:0, 1:false, 2:null, 3:true,
 
+
 dedupe()
 ~~~~~~~~
 
@@ -703,6 +752,7 @@ duplicate values).
 
     assert($result == ['a', 'b', 'c', 'b']);
 
+
 interpose()
 ~~~~~~~~~~~
 
@@ -714,6 +764,7 @@ Adds a separator between each item in the sequence.
 
     $result = t\seq(['a', 'b', 'c'], t\interpose('-'));
     assert($result == ['a', '-', 'b', '-', 'c']);
+
 
 tap()
 ~~~~~
@@ -743,6 +794,7 @@ interceptor with current result and item.
 
     // Prints: a, A, b, B, c, C,
 
+
 compact()
 ~~~~~~~~~
 
@@ -754,6 +806,7 @@ Trim out all falsey values.
 
     $result = t\seq(['a', true, false, 'b', 0], t\compact());
     assert($result == ['a', true, 'b']);
+
 
 words()
 ~~~~~~~
@@ -775,6 +828,7 @@ max buffer length is 4096. To use an unbounded buffer, provide ``INF``.
     $result = t\seq($data, $xf);
     assert($result == ['Hi.', 'This', 'is', 'a', 'test.']);
 
+
 lines()
 ~~~~~~~
 
@@ -795,8 +849,10 @@ max buffer length is 10MB. To use an unbounded buffer, provide ``INF``.
     $result = t\seq($data, $xf);
     assert($result == ['Hi.', 'This is a test.', 'Hear me?']);
 
+
 Utility Functions
 -----------------
+
 
 identity()
 ~~~~~~~~~~
@@ -807,6 +863,7 @@ Returns the provided value. This is useful for writing reducing function arrays
 that do not need to modify an 'init' or 'result' function. In these cases, you
 can simply use the string ``'transducers\identity'`` as the 'init' or 'result'
 function to continue to proxy to further reducers.
+
 
 assoc_iter()
 ~~~~~~~~~~~~
@@ -846,6 +903,7 @@ reducing an associative array.
 
     assert($result == ['a' => 2, 'b' => 3]);
 
+
 stream_iter()
 ~~~~~~~~~~~~~
 
@@ -871,6 +929,7 @@ Creates an iterator that reads from a stream using the given ``$size`` argument.
         echo $char . '-';
     }
 
+
 vec()
 ~~~~~
 
@@ -885,6 +944,7 @@ element. Iterators are returned as-is. Strings are split by character using
 ``str_split()``. PHP streams are converted into iterators that yield a single
 byte at a time.
 
+
 is_iterable()
 ~~~~~~~~~~~~~
 
@@ -893,6 +953,7 @@ is_iterable()
 Returns true if the provided $coll is something that can be iterated in a
 foreach loop. This function treats arrays, instances of \Traversable, and
 stdClass as iterable.
+
 
 reduce()
 ~~~~~~~~

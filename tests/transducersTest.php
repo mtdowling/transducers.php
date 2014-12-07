@@ -509,4 +509,12 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         t\register_stream_filter();
         stream_filter_append($fp, 'transducer', STREAM_FILTER_READ);
     }
+
+    public function testToFn()
+    {
+        $xf = t\map(function ($x) { return $x + 1; });
+        $fn = t\to_fn($xf, t\string_reducer());
+        $result = array_reduce([1, 2, 3], $fn);
+        $this->assertEquals('234', $result);
+    }
 }

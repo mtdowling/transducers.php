@@ -177,6 +177,28 @@ function transduce(callable $xf, array $step, $coll, $init = null)
     return $reducer['result'](reduce($reducer['step'], $coll, $init));
 }
 
+/**
+ * Convert a transducer into a function that can be used with existing reduce
+ * implementations (e.g., array_reduce).
+ *
+ * @param callable       $xf      Transducer
+ * @param callable|array $builder Reducing function array or a step function
+ *                                that takes an accumulator value and the next
+ *                                input and returns a new accumulator value. If
+ *                                none is provided, an array_reducer is used.
+ * @return mixed
+ */
+function to_fn(callable $xf, $builder = null)
+{
+    if (!$builder) {
+        $builder = array_reducer();
+    } elseif (is_callable($builder)) {
+        $builder = create_reducer($builder);
+    }
+
+    return $xf($builder)['step'];
+}
+
 //-----------------------------------------------------------------------------
 // Transducers
 //-----------------------------------------------------------------------------
