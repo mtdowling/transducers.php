@@ -238,6 +238,56 @@ arrays as the ``$step`` argument:
       // Result is equal to 10
 
 
+xform()
+~~~~~~~
+
+``function xform($coll, callable $xf)``
+
+Returns the same data type passed in as ``$coll`` with ``$xf`` applied.
+
+``xform()`` using the following logic when returning values:
+
+- ``array``: Returns an array using the provided array.
+- ``associative array``: Turn the provided array into an indexed array, meaning
+  that each value passed to the ``step`` reduce function is an array where
+  the first element is the key and the second element is the value. When
+  completed, ``xform()`` returns an associative array.
+- ``\Iterator``: Returns an iterator in which ``$xf`` is applied lazily.
+- ``resource``: Reads single bytes from the provided value and returns a new
+  fopen resource that contains the bytes from the input resource after applying
+  ``$xf``.
+- ``string``: Passes each character from the string through to each step
+  function and returns a string.
+
+.. code-block:: php
+
+    // Give an array and get back an array
+    $result = t\xform([1, false, 3], t\compact());
+    assert($result === [1, 3]);
+
+    // Give an iterator and get back an iterator
+    $result = t\xform(new ArrayIterator([1, false, 3]), t\compact());
+    assert($result instanceof \Iterator);
+
+    // Give a stream and get back a stream.
+    $stream = fopen('php://temp', 'w+');
+    fwrite($stream, '012304');
+    rewind($stream);
+    $result = t\xform($stream, t\compact());
+    assert($result == '1234');
+
+    // Give a string and get back a string
+    $result = t\xform('abc', t\map(function ($v) { return strtoupper($v); }));
+    assert($result === 'abc');
+
+    // Give an associative array and get back an associative array.
+    $data = ['a' => 1, 'b' => 2];
+    $result = t\xform('abc', t\map(function ($v) {
+        return [strtoupper($v[0]), $v[1]];
+    }));
+    assert($result === ['A' => 1, 'B' => 2]);
+
+
 into()
 ~~~~~~
 
@@ -363,56 +413,6 @@ convert the input value into an array.
     );
 
     // Outputs: ABC
-
-
-xform()
-~~~~~~~
-
-``function xform($coll, callable $xf)``
-
-Returns the same data type passed in as ``$coll`` with ``$xf`` applied.
-
-``xform()`` using the following logic when returning values:
-
-- ``array``: Returns an array using the provided array.
-- ``associative array``: Turn the provided array into an indexed array, meaning
-  that each value passed to the ``step`` reduce function is an array where
-  the first element is the key and the second element is the value. When
-  completed, ``xform()`` returns an associative array.
-- ``\Iterator``: Returns an iterator in which ``$xf`` is applied lazily.
-- ``resource``: Reads single bytes from the provided value and returns a new
-  fopen resource that contains the bytes from the input resource after applying
-  ``$xf``.
-- ``string``: Passes each character from the string through to each step
-  function and returns a string.
-
-.. code-block:: php
-
-    // Give an array and get back an array
-    $result = t\xform([1, false, 3], t\compact());
-    assert($result === [1, 3]);
-
-    // Give an iterator and get back an iterator
-    $result = t\xform(new ArrayIterator([1, false, 3]), t\compact());
-    assert($result instanceof \Iterator);
-
-    // Give a stream and get back a stream.
-    $stream = fopen('php://temp', 'w+');
-    fwrite($stream, '012304');
-    rewind($stream);
-    $result = t\xform($stream, t\compact());
-    assert($result == '1234');
-
-    // Give a string and get back a string
-    $result = t\xform('abc', t\map(function ($v) { return strtoupper($v); }));
-    assert($result === 'abc');
-
-    // Give an associative array and get back an associative array.
-    $data = ['a' => 1, 'b' => 2];
-    $result = t\xform('abc', t\map(function ($v) {
-        return [strtoupper($v[0]), $v[1]];
-    }));
-    assert($result === ['A' => 1, 'B' => 2]);
 
 
 to_fn()
