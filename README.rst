@@ -3,7 +3,7 @@ transducers-php
 ===============
 
 .. image:: https://badges.gitter.im/Join Chat.svg
-:target: https://gitter.im/mtdowling/transducers.php?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+        :target: https://gitter.im/mtdowling/transducers.php?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
 
 `Transducers <http://clojure.org/transducers>`_ are composable algorithmic
 transformations. They are independent from the context of their input and
