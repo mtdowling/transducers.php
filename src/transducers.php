@@ -132,7 +132,7 @@ function into($target, $coll, callable $xf)
  * @return mixed
  * @throws \InvalidArgumentException
  */
-function seq($coll, callable $xf)
+function xform($coll, callable $xf)
 {
     if (is_array($coll)) {
         reset($coll);
@@ -149,7 +149,7 @@ function seq($coll, callable $xf)
         return transduce($xf, string_reducer(), str_split($coll));
     }
 
-    throw type_error('seq', $coll);
+    throw type_error('xform', $coll);
 }
 
 /**

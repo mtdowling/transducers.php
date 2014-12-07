@@ -18,7 +18,7 @@ You can transduce anything that you can iterate over in a foreach-loop (e.g.,
 arrays, ``\Iterator``, ``Traversable``, ``Generator``, etc.). Transducers can
 be applied **eagerly** using ``transduce()``, ``into()``, ``to_array()``,
 ``to_assoc()``, ``to_string()``; and **lazily** using ``to_iter()``,
-``seq()``, or by applying a transducer stream filter.
+``xform()``, or by applying a transducer stream filter.
 
 ::
 
@@ -49,12 +49,12 @@ The above composed transducer is a function that creates a pipeline for
 transforming data: it skips the first two elements of a collection,
 adds 1 to each value, filters out even numbers, then takes 3 elements from the
 collection. This new transformation function can be used with various
-transducer application functions, including ``seq()``.
+transducer application functions, including ``xform()``.
 
 .. code-block:: php
 
     $data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-    $result = t\seq($data, $xf);
+    $result = t\xform($data, $xf);
 
     // Contains: [5, 7, 9]
 
@@ -84,7 +84,7 @@ Here's how to create a transducer that adds ``$n`` to each value:
         }
     };
 
-    $result = t\seq([1, 2, 3], $inc(1));
+    $result = t\xform([1, 2, 3], $inc(1));
     // Contains: 2, 3, 4
 
 .. _reducing-link:
@@ -365,20 +365,20 @@ convert the input value into an array.
     // Outputs: ABC
 
 
-seq()
-~~~~~
+xform()
+~~~~~~~
 
-``function seq($coll, callable $xf)``
+``function xform($coll, callable $xf)``
 
 Returns the same data type passed in as ``$coll`` with ``$xf`` applied.
 
-``seq()`` using the following logic when returning values:
+``xform()`` using the following logic when returning values:
 
 - ``array``: Returns an array using the provided array.
 - ``associative array``: Turn the provided array into an indexed array, meaning
   that each value passed to the ``step`` reduce function is an array where
   the first element is the key and the second element is the value. When
-  completed, ``seq()`` returns an associative array.
+  completed, ``xform()`` returns an associative array.
 - ``\Iterator``: Returns an iterator in which ``$xf`` is applied lazily.
 - ``resource``: Reads single bytes from the provided value and returns a new
   fopen resource that contains the bytes from the input resource after applying
@@ -389,27 +389,27 @@ Returns the same data type passed in as ``$coll`` with ``$xf`` applied.
 .. code-block:: php
 
     // Give an array and get back an array
-    $result = t\seq([1, false, 3], t\compact());
+    $result = t\xform([1, false, 3], t\compact());
     assert($result === [1, 3]);
 
     // Give an iterator and get back an iterator
-    $result = t\seq(new ArrayIterator([1, false, 3]), t\compact());
+    $result = t\xform(new ArrayIterator([1, false, 3]), t\compact());
     assert($result instanceof \Iterator);
 
     // Give a stream and get back a stream.
     $stream = fopen('php://temp', 'w+');
     fwrite($stream, '012304');
     rewind($stream);
-    $result = t\seq($stream, t\compact());
+    $result = t\xform($stream, t\compact());
     assert($result == '1234');
 
     // Give a string and get back a string
-    $result = t\seq('abc', t\map(function ($v) { return strtoupper($v); }));
+    $result = t\xform('abc', t\map(function ($v) { return strtoupper($v); }));
     assert($result === 'abc');
 
     // Give an associative array and get back an associative array.
     $data = ['a' => 1, 'b' => 2];
-    $result = t\seq('abc', t\map(function ($v) {
+    $result = t\xform('abc', t\map(function ($v) {
         return [strtoupper($v[0]), $v[1]];
     }));
     assert($result === ['A' => 1, 'B' => 2]);
@@ -489,7 +489,7 @@ Applies a map function ``$f`` to each value in a collection.
 
     $data = ['a', 'b', 'c'];
     $xf = t\map(function ($value) { return strtoupper($value); });
-    assert(t\seq($data, $xf) == ['A', 'B', 'C']);
+    assert(t\xform($data, $xf) == ['A', 'B', 'C']);
 
 
 filter()
@@ -503,7 +503,7 @@ Filters values that do not satisfy the predicate function ``$pred``.
 
     $data = [1, 2, 3, 4];
     $odd = function ($value) { return $value % 2; };
-    $result = t\seq($data, t\filter($odd));
+    $result = t\xform($data, t\filter($odd));
     assert($result == [1, 3]);
 
 
@@ -518,7 +518,7 @@ Removes anything from a sequence that satisfied ``$pred``.
 
     $data = [1, 2, 3, 4];
     $odd = function ($value) { return $value % 2; };
-    $result = t\seq($data, t\remove($odd));
+    $result = t\xform($data, t\remove($odd));
     assert($result == [2, 4]);
 
 
@@ -535,7 +535,7 @@ the function name (i.e., ``'transducers\cat'``);
 
     $xf = 'transducers\cat';
     $data = [[1, 2], [3], [], [4, 5]];
-    $result = t\seq($data, $xf);
+    $result = t\xform($data, $xf);
     assert($result == [1, 2, 3, 4, 5]);
 
 
@@ -551,7 +551,7 @@ nesting.
 
     $data = [[1, 2], [3], [], [4, 5]];
     $xf = t\mapcat(function ($value) { return array_sum($value); });
-    $result = t\seq($data, $xf);
+    $result = t\xform($data, $xf);
     assert($result == [3, 3, 0, 9]);
 
 
@@ -582,7 +582,7 @@ array completes, the array will be stepped with any remaining items.
 .. code-block:: php
 
     $data = [1, 2, 3, 4, 5];
-    $result = t\seq($data, t\partition(2));
+    $result = t\xform($data, t\partition(2));
     assert($result == [[1, 2], [3, 4], [5]]);
 
 
@@ -618,7 +618,7 @@ Takes ``$n`` number of values from a collection.
 .. code-block:: php
 
     $data = [1, 2, 3, 4, 5];
-    $result = t\seq($data, t\take(2));
+    $result = t\xform($data, t\take(2));
     assert($result == [1, 2]);
 
 
@@ -633,7 +633,7 @@ Takes from a collection while the predicate function ``$pred`` returns true.
 
     $data = [1, 2, 3, 4, 5];
     $xf = t\take_while(function ($value) { return $value < 4; });
-    $result = t\seq($data, $xf);
+    $result = t\xform($data, $xf);
     assert($result == [1, 2, 3]);
 
 
@@ -647,7 +647,7 @@ Takes every nth item from a sequence of values.
 .. code-block:: php
 
     $data = [1, 2, 3, 4, 5, 6];
-    $result = t\seq($data, t\take_nth(2));
+    $result = t\xform($data, t\take_nth(2));
     assert($result == [1, 3, 5]);
 
 drop()
@@ -660,7 +660,7 @@ Drops ``$n`` items from the beginning of the input sequence.
 .. code-block:: php
 
     $data = [1, 2, 3, 4, 5];
-    $result = t\seq($data, t\drop(2));
+    $result = t\xform($data, t\drop(2));
     assert($result == [3, 4, 5]);
 
 
@@ -676,7 +676,7 @@ returns true.
 
     $data = [1, 2, 3, 4, 5];
     $xf = t\drop_while(function ($value) { return $value < 3; });
-    $result = t\seq($data, $xf);
+    $result = t\xform($data, $xf);
     assert($result == [3, 4, 5]);
 
 
@@ -693,7 +693,7 @@ elements equal to a key in ``$smap`` are replaced with the corresponding
 
     $data = ['hi', 'there', 'guy', '!'];
     $xf = t\replace(['hi' => 'You', '!' => '?']);
-    $result = t\seq($data, $xf);
+    $result = t\xform($data, $xf);
     assert($result == ['You', 'there', 'guy', '?']);
 
 
@@ -706,7 +706,7 @@ Keeps ``$f`` items for which ``$f`` does not return null.
 
 .. code-block:: php
 
-    $result = t\seq(
+    $result = t\xform(
         [0, false, null, true],
         t\keep(function ($value) { return $value; })
     );
@@ -723,7 +723,7 @@ Returns a sequence of the non-null results of ``$f($index, $input)``.
 
 .. code-block:: php
 
-    $result = t\seq(
+    $result = t\xform(
         [0, false, null, true],
         t\keep_indexed(function ($index, $input) {
             echo $index . ':' . json_encode($input) . ', ';
@@ -746,7 +746,7 @@ duplicate values).
 
 .. code-block:: php
 
-    $result = t\seq(
+    $result = t\xform(
         ['a', 'b', 'b', 'c', 'c', 'c', 'b'],
         t\dedupe()
     );
@@ -763,7 +763,7 @@ Adds a separator between each item in the sequence.
 
 .. code-block:: php
 
-    $result = t\seq(['a', 'b', 'c'], t\interpose('-'));
+    $result = t\xform(['a', 'b', 'c'], t\interpose('-'));
     assert($result == ['a', '-', 'b', '-', 'c']);
 
 
@@ -784,7 +784,7 @@ interceptor with current result and item.
     // echo each value as it passes through the tap function.
     $tap = t\tap(function ($r, $x) { echo $x . ', '; });
 
-    t\seq(
+    t\xform(
         ['a', 'b', 'c'],
         t\comp(
             $tap,
@@ -805,7 +805,7 @@ Trim out all falsey values.
 
 .. code-block:: php
 
-    $result = t\seq(['a', true, false, 'b', 0], t\compact());
+    $result = t\xform(['a', true, false, 'b', 0], t\compact());
     assert($result == ['a', true, 'b']);
 
 
@@ -822,11 +822,11 @@ max buffer length is 4096. To use an unbounded buffer, provide ``INF``.
 
     $xf = t\words();
     $data = ['Hi. This is a test.'];
-    $result = t\seq($data, $xf);
+    $result = t\xform($data, $xf);
     assert($result == ['Hi.', 'This', 'is', 'a', 'test.']);
 
     $data = ['Hi. ', 'This is',  ' a test.'];
-    $result = t\seq($data, $xf);
+    $result = t\xform($data, $xf);
     assert($result == ['Hi.', 'This', 'is', 'a', 'test.']);
 
 
@@ -843,11 +843,11 @@ max buffer length is 10MB. To use an unbounded buffer, provide ``INF``.
 
     $xf = t\lines();
     $data = ["Hi.\nThis is a test."];
-    $result = t\seq($data, $xf);
+    $result = t\xform($data, $xf);
     assert($result == ['Hi.', 'This is a test.']);
 
     $data = ["Hi.\n", 'This is',  ' a test.', "\nHear me?"];
-    $result = t\seq($data, $xf);
+    $result = t\xform($data, $xf);
     assert($result == ['Hi.', 'This is a test.', 'Hear me?']);
 
 

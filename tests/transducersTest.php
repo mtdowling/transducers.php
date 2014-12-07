@@ -54,12 +54,12 @@ class functionsTest extends \PHPUnit_Framework_TestCase
         fclose($res);
     }
 
-    public function testTransformStreamWithSeq()
+    public function testTransformStreamWithxform()
     {
         $stream = fopen('php://temp', 'w+');
         fwrite($stream, '012304');
         rewind($stream);
-        $result = t\seq($stream, t\compact());
+        $result = t\xform($stream, t\compact());
         rewind($result);
         $this->assertEquals('1234', stream_get_contents($result));
     }
@@ -68,7 +68,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $xf = t\compact();
         $data = new \ArrayIterator([1, false, 2, null]);
-        $iter = t\seq($data, $xf);
+        $iter = t\xform($data, $xf);
         $this->assertInstanceOf('Generator', $iter);
         $this->assertEquals([1, 2], iterator_to_array($iter));
     }
@@ -77,16 +77,16 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $xf = t\map(function ($v) { return strtoupper($v); });
         $data = 'foo';
-        $this->assertSame('FOO', t\seq($data, $xf));
+        $this->assertSame('FOO', t\xform($data, $xf));
     }
 
     /**
-     * @expectedExceptionMessage Do not know how to seq bool(false)
+     * @expectedExceptionMessage Do not know how to xform bool(false)
      * @expectedException \InvalidArgumentException
      */
     public function testSeqThrowsWhenUnknownDataType()
     {
-        t\seq(false, t\compact());
+        t\xform(false, t\compact());
     }
 
     public function testCompactTrimsFalseyValues()
@@ -195,21 +195,21 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     public function testTakes()
     {
         $data = [1, 2, 3, 4, 5];
-        $result = t\seq($data, t\take(2));
+        $result = t\xform($data, t\take(2));
         $this->assertEquals($result, [1, 2]);
     }
 
     public function testDrops()
     {
         $data = [1, 2, 3, 4, 5];
-        $result = t\seq($data, t\drop(2));
+        $result = t\xform($data, t\drop(2));
         $this->assertEquals($result, [3, 4, 5]);
     }
 
     public function testTakesNth()
     {
         $data = [1, 2, 3, 4, 5, 6];
-        $result = t\seq($data, t\take_nth(2));
+        $result = t\xform($data, t\take_nth(2));
         $this->assertEquals($result, [1, 3, 5]);
     }
 
@@ -217,7 +217,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $data = [1, 2, 3, 4, 5];
         $xf = t\take_while(function ($value) { return $value < 4; });
-        $result = t\seq($data, $xf);
+        $result = t\xform($data, $xf);
         $this->assertEquals($result, [1, 2, 3]);
     }
 
@@ -225,7 +225,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $data = [1, 2, 3, 4, 5];
         $xf = t\drop_while(function ($value) { return $value < 3; });
-        $result = t\seq($data, $xf);
+        $result = t\xform($data, $xf);
         $this->assertEquals($result, [3, 4, 5]);
     }
 
@@ -233,7 +233,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $data = ['hi', 'there', 'guy', '!'];
         $xf = t\replace(['hi' => 'You', '!' => '?']);
-        $result = t\seq($data, $xf);
+        $result = t\xform($data, $xf);
         $this->assertEquals($result, ['You', 'there', 'guy', '?']);
     }
 
@@ -241,7 +241,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $data = [0, false, null, true];
         $xf = t\keep(function ($value) { return $value; });
-        $result = t\seq($data, $xf);
+        $result = t\xform($data, $xf);
         $this->assertEquals([0, false, true], $result);
     }
 
@@ -253,7 +253,7 @@ class functionsTest extends \PHPUnit_Framework_TestCase
             $calls[] = [$idx, $item];
             return $item;
         });
-        $result = t\seq($data, $xf);
+        $result = t\xform($data, $xf);
         $this->assertEquals([0, false, true], $result);
         $this->assertEquals([[0, 0], [1, false], [2, null], [3, true]], $calls);
     }
@@ -391,11 +391,11 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertEquals(
             ['hi', 'there', 'guy!'],
-            t\seq(["hi\nthere", " guy!"], t\words())
+            t\xform(["hi\nthere", " guy!"], t\words())
         );
         $this->assertEquals(
             ['hi', 'the', 're', 'guy', '!'],
-            t\seq(["hi\nthere", " guy!"],t\words(3))
+            t\xform(["hi\nthere", " guy!"],t\words(3))
         );
     }
 
@@ -403,11 +403,11 @@ class functionsTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertEquals(
             ['hi', 'there guy!'],
-            t\seq(["hi\nthere", " guy!"], t\lines())
+            t\xform(["hi\nthere", " guy!"], t\lines())
         );
         $this->assertEquals(
             ['hi', 'there', ' guy!'],
-            t\seq(["hi\nthere", " guy!"], t\lines(5))
+            t\xform(["hi\nthere", " guy!"], t\lines(5))
         );
     }
 

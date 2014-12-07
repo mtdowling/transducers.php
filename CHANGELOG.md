@@ -2,6 +2,7 @@
 
 ## 0.2.0 - Unreleased
 
+* Renamed `transducers\seq()` to `transducers\xform()`.
 * Renamed `transducers\vec()` to `transducers\to_traversable()`.
 * Renamed `transducers\is_iterable()` to `transducers\is_traversable()`.
 * Added `transducers\to_fn()` so that transducers can be used with existing
