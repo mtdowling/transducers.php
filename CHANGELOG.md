@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.2.0 - Unreleased
+## 0.2.0 - 2014-12-07
 
 * Renamed `transducers\seq()` to `transducers\xform()`.
 * Renamed `transducers\vec()` to `transducers\to_traversable()`.
