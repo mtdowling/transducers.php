@@ -43,8 +43,8 @@ function:
 
     $xf = t\comp(
         t\drop(2),
-        t\map(function ($x) { return $x + 1; },
-        t\filter(function ($x) { return $x % 2; },
+        t\map(function ($x) { return $x + 1; }),
+        t\filter(function ($x) { return $x % 2; }),
         t\take(3)
     );
 
@@ -374,7 +374,7 @@ an array.
 
     $result = t\to_array(
         'abc',
-        t\map(function ($v) { return strtoupper($v); }
+        t\map(function ($v) { return strtoupper($v); })
     );
 
     // Contains: ['A', 'B', 'C']
@@ -393,7 +393,7 @@ array key in the first element and the array value in the second.
 
     $result = t\to_assoc(
         ['a' => 1, 'b' => 2],
-        t\map(function ($v) { return [$v[0], $v[1] + 1]; }
+        t\map(function ($v) { return [$v[0], $v[1] + 1]; })
     );
 
     assert($result == ['a' => 2, 'b' => 3]);
@@ -412,7 +412,7 @@ convert the input value into an array.
 
     echo t\to_string(
         ['a', 'b', 'c'],
-        t\map(function ($v) { return strtoupper($v); }
+        t\map(function ($v) { return strtoupper($v); })
     );
 
     // Outputs: ABC
@@ -888,7 +888,7 @@ arrays.
 .. code-block:: php
 
     $result = t\transduce(
-        t\map(function ($v) { return [$v[0], $v[1] + 1]; },
+        t\map(function ($v) { return [$v[0], $v[1] + 1]; }),
         t\assoc(),
         t\assoc_iter(['a' => 1, 'b' => 2])
     );
@@ -902,7 +902,7 @@ reducing an associative array.
 
     $result = t\to_assoc(
         ['a' => 1, 'b' => 2],
-        t\map(function ($v) { return [$v[0], $v[1] + 1]; }
+        t\map(function ($v) { return [$v[0], $v[1] + 1]; })
     );
 
     assert($result == ['a' => 2, 'b' => 3]);
