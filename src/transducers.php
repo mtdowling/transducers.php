@@ -905,9 +905,27 @@ function create_reducer(callable $step, callable $init = null, callable $result 
 function comp()
 {
     $fns = func_get_args();
-    $total = count($fns) - 1;
-    return function ($value) use ($fns, $total) {
-        for ($i = $total; $i > -1; $i--) {
+
+    if (!$fns) {
+        return 'transducers\\identity';
+    }
+
+    /** @var callable $fn */
+    $fn = array_pop($fns);
+    $total = count($fns);
+    return function ($a = null, $b = null) use ($fn, $fns, $total) {
+        $passed = func_num_args();
+        if ($passed === 1) {
+            $value = $fn($a);
+        } elseif ($passed === 2) {
+            $value = $fn($a, $b);
+        } elseif ($passed === 0) {
+            $value = $fn();
+        } else {
+            $value = call_user_func_array($fn, func_get_args());
+        }
+        $i = $total;
+        while (--$i > -1) {
             $value = $fns[$i]($value);
         }
         return $value;
