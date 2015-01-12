@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.3.0 - 2014-01-12
+
+* Updated `transducers\comp()` to work for any type of variadic function
+  composition.
+
 ## 0.2.0 - 2014-12-07
 
 * Renamed `transducers\seq()` to `transducers\xform()`.
