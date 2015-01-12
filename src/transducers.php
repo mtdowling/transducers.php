@@ -900,14 +900,23 @@ function create_reducer(callable $step, callable $init = null, callable $result 
  *
  *     comp($f, $g) // returns $f($g(x))
  *
+ * Passing a single function will return the passed function. Passing no
+ * functions will return an identity function. Passing two or more functions
+ * will return a function that accepts variadic arguments for the last
+ * function, and the result of this function is passed to the second to last
+ * function and so on.
+ *
  * @return callable
  */
 function comp()
 {
     $fns = func_get_args();
-
     if (!$fns) {
+        // Passing no values will return an identity function.
         return 'transducers\\identity';
+    } elseif (!isset($fns[1])) {
+        // Passing a single function will return the function passed.
+        return $fns[0];
     }
 
     /** @var callable $fn */
