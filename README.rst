@@ -73,7 +73,7 @@ Here's how to create a transducer that adds ``$n`` to each value:
 
 .. code-block:: php
 
-    function inc($n = 1) {
+    $inc = function ($n = 1) {
         // Return a function that accepts a reducing function array $xf.
         return function (array $xf) use ($n) {
             // Return a new reducing function array that wraps $xf.
