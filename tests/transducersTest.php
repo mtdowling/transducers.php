@@ -1,9 +1,10 @@
 <?php
 namespace transducers\Tests;
 
+use PHPUnit\Framework\TestCase;
 use transducers as t;
 
-class functionsTest extends \PHPUnit_Framework_TestCase
+class functionsTest extends TestCase
 {
     public function testComposesFunctions()
     {
